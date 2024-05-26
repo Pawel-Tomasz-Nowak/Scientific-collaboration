@@ -1,0 +1,41 @@
+
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{polski}
+\usepackage[utf8]{inputenc}
+\usepackage{xcolor}
+
+\usepackage[left=5px, top = 5px]{geometry}
+
+
+\begin{document}
+
+\section{Obserwacje dotyczące zmiennych kategorycznych}
+\subsection{Zmienna \textbf{\textcolor{red}{make}}}
+Zmienna ta jest potencjalnie \textcolor{blue}{dobrym kandydatem} na zostanie predyktorem. Ma dosyć solidne zdolności dyskryminacyjne. \\
+Liczba \textbf{unikatowych klas tej cechy wynosi 42}, co z porównaniu z liczbą wszystkich obserwacji (która jest równa około 7400 ) \textbf{jest bardzo małe} (stosunek wynosi około 0.57\%).\\
+Liczba klas, których częstotliwość jest mniejsza niż kwantyl 0.25, wynosi 10, co stanowi około \textbf{26,19\% wszystkich klas tej cechy}
+
+
+\subsection{Zmienna \textbf{\textcolor{red}{model}}}
+Z kolei zmienna kategoryczna model \textcolor{red}{nie nadaje się na predyktora.} Dlaczego?
+Wynika to z ogromnej liczby unikatowych wartości (\textbf{która wynosi 2053, co stanowi 27,8\%} wszystkich obserwacji). Z tego powodu zmienna może być interpretowana jako unikatowy identyfikator, który nie ma żadnej wartości dyskryminacyjnej. \\
+Wartość \textbf{progu częstości jest stosunkowo mała - wynosi 2}, przez co niemal wszystkie klasy są klasyfikowane jako outliersi (jest ich 1107, czyli 53,92\% wszystkich klas).
+
+
+\subsection{Zmienna Vehicle Class}
+Klasa samochodu okazuje się być istotną cechą dyskryminującą, co zwiększa jej szanse na zostanie predyktorem. Ma małą liczbę unikatowych klas (16), a jej próg częstotliwościowy sprawia, że \textbf{tylko 4} klasy są interpretowane jako bardzo rzadkie klasy.
+
+\subsection{Zmienna Cylinders}.
+Podobnie możemy powiedzieć o zmiennej Cylinders. Niska liczba klas (8) oraz liczba rzadkich klas (2) czynią z niej dobrego kandydata na predyktora.
+
+\subsection{Zmienna transmission}
+Nie ma sensu się tutaj rozgadywać o tej zmiennej. Sytuacja jest bardzo podobna do sytuacji z dwoma poprzednimi cechami.
+
+\subsection{Zmienna Fuel Type}
+Zmienna ta nadaje się do bycia predyktorem z tych samych względów, co trzy poprzednie klasę. 
+Dodatkowo, znakomicie ona rozdziela zależność liniową emisji co2 od zużycia paliwa, co czyni ją najlepszym predyktorem tutaj.
+
+
+\end{document}
