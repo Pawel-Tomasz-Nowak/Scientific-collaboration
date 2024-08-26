@@ -682,6 +682,7 @@ class ModelComparator():
      
             GridSearch = GridSearchCV(estimator =model_FS_tuned , param_grid = trans_model_paramgrid,   #Define the GridSearch.
                                       n_jobs = -1, scoring = self.scoring_method, cv = 2, error_score = 0) 
+            
             GridSearch.fit(X = X_train, y = y_train) #Train the GridSearch with training data.
     
 
