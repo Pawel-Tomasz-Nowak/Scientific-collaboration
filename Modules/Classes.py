@@ -863,11 +863,6 @@ class ModelComparator():
             self.train_with_FE(train_idx = train_indx, test_idx = test_indx, split_idx = split_indx)
 
 
-        self.FactVsPrediction.to_csv(path_or_buf = "PredictionsResults.csv", sep = ";")
-
-
-        
-        
     
 
     def boxplot_the_model_four_versions(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]) -> None:
