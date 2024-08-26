@@ -257,6 +257,9 @@ class ModelComparator():
 
         self.Models:dict[str, "estimator"] = Models
         self.Models_hipparams:dict[str, dict] = Models_hipparams
+        colors:list[str] = ['red','orange', 'yellow','cyan','blue']
+
+        self.colors_for_models:list[str] = [ colors[i] for i in range(len(Models))]
 
         self.n_splits:int = n_splits
         self.train_size:float = train_size
@@ -879,8 +882,8 @@ class ModelComparator():
 
                 
         
-                sns.boxplot(data = metrics_dataframe_melted, y = "metric_value", x = "train_type",ax = boxplot_axes,
-                            palette = ["purple","red","green","yellow","orange"], dodge = True, gap = 1.5)
+                sns.boxplot(data = metrics_dataframe_melted, y = "metric_value", hue = "train_type",ax = boxplot_axes,
+                            palette = self.colors_for_models, dodge = True, gap = 1.5)
 
 
                 boxplot_axes.legend(self.training_types)
