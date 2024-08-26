@@ -449,7 +449,7 @@ class ModelComparator():
             
         
             self.plot_KDE(Condition = self.target_var_discr)  #Wykresy gęstości warunkowe
-            self.plot_bar_plot(Condition = self.target_var_discr) #Wykresy pudełkowe warunkowe
+            self.plot_boxplot(Condition = self.target_var_discr) #Wykresy pudełkowe warunkowe
 
         
             self.plot_pairplot(Condition = self.target_var_discr)
