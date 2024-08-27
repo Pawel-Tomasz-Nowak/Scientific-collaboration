@@ -443,8 +443,7 @@ class ModelComparator():
             #Rysowanie wykresu parowego dla zmiennych numerycznych
             self.plot_pairplot()
 
-            
-
+        
 
             self.plot_bar_plot(FreqTable = target_var_discr_histogram,   #Narysuj wykres słupkowy częstotliwości dla zmiennej celu zdyskretyzowanej.
                             cat_feature =  self.target_var_discr, 
@@ -456,7 +455,7 @@ class ModelComparator():
 
         
             self.plot_pairplot(Condition = self.target_var_discr)
-        
+
 
         #Ustal ostateczny zbiór predyktorów.
         self.predictors:list[str] = ['Make', "Vehicle Class",'Engine Size(L)','Cylinders','Transmission','Fuel Type',"Fuel Consumption City (L/100 km)", "Fuel Consumption Hwy (L/100 km)",
@@ -528,7 +527,7 @@ class ModelComparator():
         'y_type' is a type of y labels: actual or predicted. \n
 
          """
-        self.training_types: list[str] = ["noFS_untuned", "noFS_tuned", 
+        self.training_types: list[str] = ["noFS_untuned", "noFS_tuned",
                                           "FS_untuned","FS_tuned"
                                           ,"FE"]
 
@@ -742,6 +741,7 @@ class ModelComparator():
 
 
         for model_name in self.Models.keys():
+        
             model: 'estimator' = self.Models[model_name] #Instancja danego modelu.
 
             model_paramgrid: dict[str, dict] = self.Models_hipparams[model_name] #Siatka hiperparametrów modelu.
@@ -815,7 +815,7 @@ class ModelComparator():
       
             
             model_trans: Pipeline  = Pipeline(steps = [("Preprocessing", predictors_transformers), #Define the pipeline for classification.
-                                                       ("FAMD", prince.FAMD(n_components = 5, n_iter = 3)),
+                                                       ("FAMD", prince.FAMD(n_components = 4)),
                                                        ("Classifier", model)])
             
             prince.FAMD()
@@ -882,8 +882,8 @@ class ModelComparator():
 
                 
         
-                sns.boxplot(data = metrics_dataframe_melted, y = "metric_value", hue = "train_type",ax = boxplot_axes,
-                            palette = self.colors_for_models, dodge = True, gap = 1.5)
+                sns.boxplot(data = metrics_dataframe_melted, y = "metric_value", x = "train_type",ax = boxplot_axes,
+                            palette = self.colors_for_models)
 
 
                 boxplot_axes.legend(self.training_types)
@@ -894,6 +894,8 @@ class ModelComparator():
                 boxplot_axes.set_xlabel("Training type")
                 boxplot_axes.set_ylabel(f"Variability of the {metric_name} metric values")
                 boxplot_axes.set_title(f"Comparison of variability of {metric_name} values for {model_name}")
+
+                boxplot_axes.set_xticks([i for i in range(len(self.training_types))])
 
 
 
@@ -918,7 +920,7 @@ class ModelComparator():
                 axes.set_title(f"Confusion matrix for {model_name}, {train_type}")
 
 
-    def plot_models_results_collectively(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]):
+    def plot_models_results_collectively(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]) -> None:
         for metric_name in metrics_names:
             for train_type in self.training_types:
                 metric_figure:plt.Figure = plt.figure(num =f"Comparison of models with respect to {metric_name} metric and {train_type} training type")
@@ -941,10 +943,33 @@ class ModelComparator():
                 metric_axes.set_xticks(x_values)
 
                 metric_axes.grid(True, alpha = 0.7)
-        
-    
 
-                    
+    
+    def plot_median_values(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]) -> None:
+        for metric_name in metrics_names:
+            for train_type in self.training_types:
+                medianmetric_figure: plt.figuer = plt.figure(num = f"Comparison of median values for models, {train_type} training type, {metric_name} metric")
+                medianmetric_axes: plt.axes = medianmetric_figure.add_subplot()
+
+                index_slicer = pd.IndexSlice
+
+                median_dataframe:pd.DataFrame = metrics_dataframe.loc[:, index_slicer[:, train_type, metric_name]].median(axis = 0).reset_index(level = [1,2], drop = True).reset_index()
+                median_dataframe.columns =["Model", 'Median']
+
+                sns.barplot(data = median_dataframe, x = "Model", y = "Median", palette = self.colors_for_models,
+                            ax = medianmetric_axes)
+                
+                min_value = median_dataframe['Median'].min()
+
+                medianmetric_axes.set_xlabel("Model", labelpad = 5)
+                medianmetric_axes.set_ylabel(f"Median value", labelpad = 5)
+                medianmetric_axes.set_title(f"Comparison of median value of {metric_name}   for {train_type} training typex")
+
+                medianmetric_axes.set_ylim(0.99*min_value, 1)
+
+
+
+
     def compute_perf_metric(self, metrics: dict[str, callable], metrics_names:list[str]) -> pd.DataFrame:
         """The function assess the perfomance of a given model, by a given training_type, by a given metric_name, by a given split_idx.
 
@@ -972,8 +997,16 @@ class ModelComparator():
                         y_true:pd.Series = self.FactVsPrediction[(model_name, train_type, split_idx, "True")]
                         y_pred:pd.Series = self.FactVsPrediction[(model_name, train_type, split_idx, "Pred")]
 
-                        metric_value:float = metrics[metric_name](y_true = y_true, y_pred = y_pred, 
-                                                                  average = "weighted", zero_division = 0)
+
+                        average_type: str | None = "weighted" if metric_name != "Accuracy" else None
+
+                        if metric_name != "Accuracy":
+
+                            metric_value:float = metrics[metric_name](y_true = y_true, y_pred = y_pred, 
+                                                                    average = average_type, zero_division = 0)
+                        else:
+                            metric_value:float = metrics[metric_name](y_true = y_true, y_pred = y_pred, 
+                                                                )
                         
                     
                         metrics_dataframe.loc[split_idx,(model_name, train_type, metric_name)] = metric_value
@@ -989,9 +1022,7 @@ class ModelComparator():
         """Metoda wylicza, na podstawie przewidzianych przez modele etykiet, miary dokładności modelu, takie jak: accuracy_score, f1_score, precision_score, recall score.
         Następnie wyniki tych metryk przedstawia na wykresach."""
         #Zdefiniuj różne miary dokładności modeli.
-        metrics:dict[str : "metric"] = {#"Accuracy":accuracy_score,
-            #"Precision":precision_score,
-                #"Recall":recall_score,
+        metrics:dict[str : "metric"] = {"Accuracy":accuracy_score,
                   "F1": f1_score}
         
         metrics_names:list[str] = list(metrics.keys())
@@ -999,10 +1030,10 @@ class ModelComparator():
 
         metrics_dataframe:pd.DataFrame = self.compute_perf_metric(metrics  = metrics, metrics_names = metrics_names)
 
-        
 
         self.plot_models_results_collectively(metrics_dataframe = metrics_dataframe, metrics_names = metrics_names)
         self.boxplot_the_model_four_versions(metrics_dataframe = metrics_dataframe, metrics_names = metrics_names)
+        self.plot_median_values(metrics_dataframe = metrics_dataframe, metrics_names = metrics_names)
         self.plot_confussion_matrix()
 
                     
