@@ -927,21 +927,17 @@ class ModelComparator():
                 metric_axes:plt.axes = metric_figure.add_subplot()
 
 
-                #The x-cordinates.
-                x_values:list[int] = list(range(0, self.n_splits))
+                
+                y_values:pd.Series = metrics_dataframe.loc[:, (slice(None), train_type, metric_name)]
 
-                for model_name in self.model_names:
-                    y_values:list[float] = metrics_dataframe[(model_name, train_type, metric_name)]
-
-                    metric_axes.plot(x_values, y_values)
+                sns.boxplot(data = y_values, ax = metric_axes)
 
                 metric_axes.set_title(f"Comparison of models with respect to {metric_name} metric and {train_type} training type")
-                metric_axes.set_xlabel("Iteration_idx")
+                metric_axes.set_xlabel("Model name")
                 metric_axes.set_ylabel("Metric value") 
 
-                metric_axes.legend(self.model_names)
-                metric_axes.set_xticks(x_values)
-
+                metric_axes.legend(None)
+              
                 metric_axes.grid(True, alpha = 0.7)
 
     
@@ -957,7 +953,7 @@ class ModelComparator():
                 median_dataframe.columns =["Model", 'Median']
 
                 sns.barplot(data = median_dataframe, x = "Model", y = "Median", palette = self.colors_for_models,
-                            ax = medianmetric_axes)
+                            ax = medianmetric_axes, linewidth = 1.5, edgecolor = "black")
                 
                 min_value = median_dataframe['Median'].min()
 
@@ -1022,8 +1018,8 @@ class ModelComparator():
         """Metoda wylicza, na podstawie przewidzianych przez modele etykiet, miary dokładności modelu, takie jak: accuracy_score, f1_score, precision_score, recall score.
         Następnie wyniki tych metryk przedstawia na wykresach."""
         #Zdefiniuj różne miary dokładności modeli.
-        metrics:dict[str : "metric"] = {"Accuracy":accuracy_score,
-                  "F1": f1_score}
+        metrics:dict[str : "metric"] = {"Accuracy":accuracy_score}
+                 # "F1": f1_score}
         
         metrics_names:list[str] = list(metrics.keys())
         
