@@ -5,7 +5,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from sklearn.preprocessing import OneHotEncoder, StandardScaler, FunctionTransformer, OrdinalEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, FunctionTransformer, OrdinalEncoder, MinMaxScaler
 from sklearn.decomposition import PCA
 from sklearn.compose import ColumnTransformer
 from sklearn.experimental import enable_halving_search_cv
@@ -16,6 +16,8 @@ from sklearn.feature_selection import SequentialFeatureSelector as SFS
 from sklearn.pipeline import Pipeline
 from sklearn.base import TransformerMixin, BaseEstimator
 import prince
+
+from string import ascii_uppercase
 
 
 class RareClassAggregator(TransformerMixin, BaseEstimator):
@@ -382,13 +384,19 @@ class ModelComparator():
         """
         sns.pairplot(self.Dataset, hue = Condition ,diag_kind = "kde")
 
+    
 
     def discretize(self) -> None:
         """Discretize the target variable with respect to given bins"""
-        labels:list[int] = [i for i in range(len(self.bins) -1)] #Find the list of integer-labels.
+        labels:list[int] =  [i+1 for i in range(len(self.bins)-1)] #Find the list of integer-labels.
+     
+        target_var_MinMaxScaler:MinMaxScaler = MinMaxScaler(feature_range = (self.bins[1], self.bins[-2])) #Define the MinMaxScaler for target variable.
+        y_scaled = target_var_MinMaxScaler.fit_transform(X = pd.DataFrame(self.Dataset[self.target_var]))[:, 0] #Train the MinMaxScaler and immediately transform the target variable.
+
+
      
 
-        discretized_feature:pd.Series = pd.cut(x = self.Dataset[self.target_var],  #Finally, discretize the labels.
+        discretized_feature:pd.Series = pd.cut(x = y_scaled,  #Finally, discretize the labels.
                                     bins = self.bins, 
                                     labels = labels)
         
@@ -780,7 +788,6 @@ class ModelComparator():
             self.FactVsPrediction[(model_name, "noFS_tuned", split_indx, "True")] = y_test
             self.FactVsPrediction[(model_name, "noFS_tuned", split_indx, "Pred")] = y_pred
 
-    from prince import FAMD
 
 
     def train_with_FE(self, train_idx:np.ndarray, test_idx:np.ndarray, split_idx:int) -> None:
@@ -934,9 +941,7 @@ class ModelComparator():
 
                 metric_axes.set_title(f"Comparison of models with respect to {metric_name} metric and {train_type} training type")
                 metric_axes.set_xlabel("Model name")
-                metric_axes.set_ylabel("Metric value") 
-
-                metric_axes.legend(None)
+                metric_axes.set_ylabel("Metric value")
               
                 metric_axes.grid(True, alpha = 0.7)
 
