@@ -19,6 +19,9 @@ import prince
 
 from string import ascii_uppercase
 
+import pathlib as path
+
+parent_cwd_dir = path.Path.cwd().parent #Find the parent directory for current working directory (CWD).
 
 class RareClassAggregator(TransformerMixin, BaseEstimator):
     def __init__(self,  q:float = 0.1) -> None:
@@ -293,22 +296,40 @@ class ModelComparator():
         2) CatFeature  - Cecha kategoryczna, której histogram chcemy narysować.
         3) Showxlabel - Zmienna typu bool. Jeżeli ustawiona na True, to etykietki osi Ox są wyświetlane."""
         
-        plt.figure(figsize = (10,5)) #Stwórz płótno, na którym  będzie rysowany wykres
+
+
+        barplots_directory = parent_cwd_dir/"BarPlots" #Find the path to directory containing all barplots. If the directory doesn't exists, create one.
+
+        if not barplots_directory.exists(): #Check if the barplots_directory doesn't exist.
+            barplots_directory.mkdir() #If True, create one.
+            
+        
+        barplot_figure = plt.figure(num = f"BarPlot for {cat_feature} feature",figsize = (10,5), dpi = 300) #Stwórz płótno, na którym  będzie rysowany wykres.
+        axes = barplot_figure.add_subplot()
     
-        axes = sns.barplot(x = FreqTable.index, y = FreqTable.values)
+        sns.barplot(x = FreqTable.index, y = FreqTable.values, ax = axes)
 
 
-        axes.set_ylabel(f"Częstość klasy") #Ustaw etykietke pionowej osi.
+        axes.set_ylabel(f"Rel. freq. of class.") #Ustaw etykietke pionowej osi.
+        axes.set_xlabel(f"{cat_feature}")
 
         axes.set_xticklabels([]) #Usuń etykiety tyknięć na osi Ox.
         axes.spines[["top", "right"]].set_visible(False)
 
-        axes.set_title(f"Histogram klas cechy {cat_feature}") #Ustaw tytuł wykresu.
+        axes.set_title(f"Barplot of the {cat_feature} feature") #Ustaw tytuł wykresu.
 
         axes.set_ylim(0, 1.05*np.max(FreqTable))
 
         if Showxlabels == True:
             axes.set_xticklabels(labels = FreqTable.index)
+
+        barplot_filename: path.Path = barplots_directory/f"BarPlot_for_{cat_feature.replace("/","_")}.png" #Creaet a UNIQUE  name for the barplot for a given feature.
+
+        if  barplot_filename.exists():
+            barplot_filename.unlink()
+        
+            
+        barplot_figure.savefig(fname = barplot_filename)
     
 
 
@@ -318,11 +339,31 @@ class ModelComparator():
 
         CorrMatrix:pd.DataFrame =  self.Dataset[self.Num_features].corr(method = "pearson")
 
-        plt.figure(figsize=(8, 6))
+        corr_mat_fig:plt.figure = plt.figure(num = "Correlation matrix",figsize=(10, 5), dpi = 250)
+        corr_mat_axes:plt.axes = corr_mat_fig.add_subplot()
 
-        sns.heatmap(CorrMatrix, annot=True, cmap='magma', vmin=-1, vmax=1)
-        plt.title('Macierz korelacji dla zmiennych ciągłych')
-        plt.show()
+
+
+        sns.heatmap(CorrMatrix, annot=True, cmap='magma', vmin=-1, vmax=1, ax = corr_mat_axes)
+
+        plt.title('Correlation matrix for numeric continous variables')
+        corr_mat_fig.savefig("")
+    
+        corrmat_directory = parent_cwd_dir/"CorrelationMatrix" #Find the path to directory containing correlation_matrix image. If the directory doesn't exists, create one.
+
+        if not corrmat_directory.exists(): #Check if the corrmat_directory doesn't exist.
+            corrmat_directory.mkdir() #If True, create one.
+
+        corrmatrix_filename: path.Path = corrmat_directory/f"CorrelationMatrix.png" #Creaet a UNIQUE  name for the correlationmatrix path.
+
+        if corrmatrix_filename.exists():
+            corrmatrix_filename.unlink()
+
+        corr_mat_fig.savefig(fname = corrmatrix_filename)
+        
+
+        
+            
 
 
     def delete_quasiid_feature(self) -> None:
@@ -342,7 +383,21 @@ class ModelComparator():
             axes = figure.add_subplot()
 
             sns.kdeplot(data = self.Dataset, x = float_feature, ax = axes, hue = Condition)
-            axes.set_title(f"Wykres gęstości prawdopodobieństwa dla zmiennej {float_feature}")
+            axes.set_title(f"Density of {float_feature} feature")
+
+            KDEplots_directory = parent_cwd_dir/"KDEplots" #Find the path to directory containing boxplots image. If the directory doesn't exists, create one.
+
+            if not KDEplots_directory.exists(): #Check if the KDE for the feature doesn't exist.
+                KDEplots_directory.mkdir() #If True, create one.
+
+            KDEplot_filename: path.Path = KDEplots_directory/f"Conditioned KDE for {float_feature.replace("/", "_")}.png" #Creaet a UNIQUE  name for the KDE path for a given feature..
+
+            if KDEplot_filename.exists():
+                KDEplot_filename.unlink()
+
+            figure.savefig(fname = KDEplot_filename)
+            
+
 
 
     def plot_boxplot(self, Condition: str | None = None) -> None:
@@ -354,9 +409,26 @@ class ModelComparator():
             figure = plt.figure(num = f"BOX_plot_{float_feature}")
             axes = figure.add_subplot()
 
-            sns.boxplot(self.Dataset, x = float_feature, hue = Condition)
+            sns.boxplot(self.Dataset, x = float_feature, hue = Condition, ax = axes)
 
-            axes.set_title(f"Wykres pudełkowy dla zmiennej {float_feature}")
+            axes.set_title(f"Boxplot for  {float_feature} feature")
+
+            boxplots_directory = parent_cwd_dir/"Boxplots" #Find the path to directory containing boxplots image. If the directory doesn't exists, create one.
+
+            if not boxplots_directory.exists(): #Check if the boxplot for the feature doesn't exist.
+                boxplots_directory.mkdir() #If True, create one.
+
+            boxplot_filename: path.Path = boxplots_directory/f"Conditioned Boxplot for {float_feature.replace("/", "_")}.png" #Creaet a UNIQUE  name for the boxplot path for a given feature..
+
+            if boxplot_filename.exists():
+                boxplot_filename.unlink()
+
+            figure.savefig(fname = boxplot_filename)
+            
+
+
+
+            
 
 
     def plot_violinplot(self,Condition:str | None = None) -> None:
@@ -366,10 +438,10 @@ class ModelComparator():
         3) Condition = Pewna zmienna kategoryczna, za pomocą której stworzą się warunkowe wykresy skrzypcowe ze względu przynależność do klasy."""
 
         for float_feature in self.Num_features:
-            figure = plt.figure(num = f"VIOLIN_plot_{float_feature}")
+            figure = plt.figure(num = f"ViolinPlot of {float_feature}")
             axes = figure.add_subplot()
 
-            sns.violinplot(self.Dataset, x = float_feature, hue = Condition)
+            sns.violinplot(self.Dataset, x = float_feature, hue = Condition, ax = axes)
 
             axes.set_title(f"Wykres skrzypcowy dla zmiennej {float_feature}")
 
@@ -378,12 +450,39 @@ class ModelComparator():
             axes.grid(True, alpha = 0.6)
             axes.spines[['top','right']].set_visible(False)
 
+            violinplots_directory = parent_cwd_dir/"ViolinPlots" #Find the path to directory containing violinplot image. If the directory doesn't exists, create one.
+
+            if not violinplots_directory.exists(): #Check if the violinplot for the feature doesn't exist.
+                violinplots_directory.mkdir() #If True, create one.
+
+            violinplot_filename: path.Path = violinplots_directory/f"ViolinPlot for {float_feature.replace("/", "_")}.png" #Creaet a UNIQUE  name for the violinplot path for a given feature..
+
+            if violinplot_filename.exists():
+                violinplot_filename.unlink()
+
+            figure.savefig(fname = violinplot_filename)
+            
+
 
     def plot_pairplot(self,   Condition: str | None = None) -> None:
         """Funkcja rysuje wykres parowy dla wszystkich par zmiennych ciągłych.
         """
-        sns.pairplot(self.Dataset, hue = Condition ,diag_kind = "kde")
+        mode:str  = "Conditioned pairplot" if Condition != None else "Unconditioned pairplot"
 
+        pairplot = sns.pairplot(self.Dataset, hue = Condition , diag_kind = "kde")
+    
+
+        pairplots_directory  = parent_cwd_dir/"PairPlots" #Find the path to directory containing parplots plots. If the directory doesn't exists, create one.
+
+        if not pairplots_directory.exists():
+            pairplots_directory.mkdir()
+
+        pairplot_filename: path.Path = pairplots_directory/f"{mode}.png"
+
+        if pairplot_filename.exists():
+            pairplot_filename.unlink()
+
+        pairplot.savefig(fname = pairplot_filename)
     
 
     def discretize(self) -> None:
@@ -879,7 +978,7 @@ class ModelComparator():
         """Metoda porównuje wartości miary dokładności dla każdego modelu indywidualnie w wersji bez strojenia i ze strojeniem."""
         for model_name in self.model_names:
             for metric_name in metrics_names:
-                boxplot_figure: plt.figure = plt.figure(num  = f"Boxplot comparison for {model_name} model and for {metric_name} metric")
+                boxplot_figure: plt.figure = plt.figure(num  = f"Boxplot comparison for {model_name} model and for {metric_name} metric", dpi = 250)
                 boxplot_axes: plt.axes = boxplot_figure.add_subplot()
 
 
@@ -905,6 +1004,19 @@ class ModelComparator():
                 boxplot_axes.set_xticks([i for i in range(len(self.training_types))])
 
 
+                boxplot_metric_directory = parent_cwd_dir/"Boxplot for metric and model" #Find the path to directory containing boxplots . If the directory doesn't exists, create one.
+
+                if not boxplot_metric_directory.exists(): #Check if the boxplot  for the model and metric doesn't exist.
+                    boxplot_metric_directory.mkdir() #If True, create one.
+
+                boxplot_metric_filename: path.Path = boxplot_metric_directory/f"Boxplot for {metric_name} metric and {model_name} model.png" #Creaet a UNIQUE  name for boxplot for values of metric and model.
+
+                if boxplot_metric_filename.exists():
+                    boxplot_metric_filename.unlink()
+
+                boxplot_figure.savefig(fname = boxplot_metric_filename)
+
+
 
     def plot_confussion_matrix(self) -> None:
         """The methods computes the confussion matrix which will be plotted as a heatmap"""
@@ -919,18 +1031,32 @@ class ModelComparator():
 
 
            
+                conf_figure = plt.figure(num = f"{model_name} conf_matrix_{train_type}", dpi = 250)
+                conf_axes = conf_figure.add_subplot()
 
-                axes = plt.figure(num = f"{model_name}_conf_matrix_{train_type}").add_subplot()
 
 
-                ConfusionMatrixDisplay.from_predictions(y_true = y_true, y_pred = y_pred, normalize = "true", ax = axes)
-                axes.set_title(f"Confusion matrix for {model_name}, {train_type}")
+                ConfusionMatrixDisplay.from_predictions(y_true = y_true, y_pred = y_pred, normalize = "true", ax = conf_axes)
+                conf_axes.set_title(f"Confusion matrix for {model_name}, {train_type}")
+
+                conf_matrix_directory = parent_cwd_dir/f"Confussion matrix for {model_name} model" #Create a  directory containing all confusion matrices for a given model.
+
+                if not conf_matrix_directory.exists():
+                    conf_matrix_directory.mkdir()
+
+                conf_matrix_filename = conf_matrix_directory/f"Confussion matrix for {model_name} version_{train_type}.png"
+
+                if conf_matrix_filename.exists():
+                    conf_matrix_filename.unlink()
+                
+                conf_figure.savefig(fname = conf_matrix_filename)
+
 
 
     def plot_models_results_collectively(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]) -> None:
         for metric_name in metrics_names:
             for train_type in self.training_types:
-                metric_figure:plt.Figure = plt.figure(num =f"Comparison of models with respect to {metric_name} metric and {train_type} training type")
+                metric_figure:plt.Figure = plt.figure(num =f"Comparison of models with respect to {metric_name} metric and {train_type} training type", dpi = 250)
                 metric_axes:plt.axes = metric_figure.add_subplot()
 
 
@@ -944,6 +1070,19 @@ class ModelComparator():
                 metric_axes.set_ylabel("Metric value")
               
                 metric_axes.grid(True, alpha = 0.7)
+
+
+                boxplots_directory = parent_cwd_dir/f"Comparison of models with {metric_name} and {train_type} train_type" #Create a  directory containing all confusion matrices for a given model.
+
+                if not boxplots_directory.exists():
+                    boxplots_directory.mkdir()
+
+                box_matrix_filename = boxplots_directory/f"Boxplot of models for {metric_name} and {train_type}.png"
+
+                if box_matrix_filename.exists():
+                    box_matrix_filename.unlink()
+                
+                metric_figure.savefig(fname = box_matrix_filename)
 
     
     def plot_median_values(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]) -> None:
@@ -969,7 +1108,17 @@ class ModelComparator():
                 medianmetric_axes.set_ylim(0.99*min_value, 1)
 
 
+                medvalues_directory = parent_cwd_dir/f"Comparison of medvalues with {metric_name} and {train_type} train_type" #Create a  directory containing all confusion matrices for a given model.
 
+                if not medvalues_directory.exists():
+                    medvalues_directory.mkdir()
+
+                medvalues_filename = medvalues_directory/f"medvalues for {metric_name} and {train_type}.png"
+
+                if medvalues_filename.exists():
+                    medvalues_filename.unlink()
+                
+                medianmetric_figure.savefig(fname = medvalues_filename)
 
     def compute_perf_metric(self, metrics: dict[str, callable], metrics_names:list[str]) -> pd.DataFrame:
         """The function assess the perfomance of a given model, by a given training_type, by a given metric_name, by a given split_idx.
