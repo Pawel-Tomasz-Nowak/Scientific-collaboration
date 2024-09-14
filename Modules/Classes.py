@@ -395,6 +395,7 @@ class ModelComparator():
             if KDEplot_filename.exists():
                 KDEplot_filename.unlink()
 
+            axes.grid(True)
             figure.savefig(fname = KDEplot_filename)
             
 
@@ -470,7 +471,6 @@ class ModelComparator():
         mode:str  = "Conditioned pairplot" if Condition != None else "Unconditioned pairplot"
 
         pairplot = sns.pairplot(self.Dataset, hue = Condition , diag_kind = "kde")
-    
 
         pairplots_directory  = parent_cwd_dir/"PairPlots" #Find the path to directory containing parplots plots. If the directory doesn't exists, create one.
 
@@ -489,13 +489,8 @@ class ModelComparator():
         """Discretize the target variable with respect to given bins"""
         labels:list[int] =  [i+1 for i in range(len(self.bins)-1)] #Find the list of integer-labels.
      
-        target_var_MinMaxScaler:MinMaxScaler = MinMaxScaler(feature_range = (self.bins[1], self.bins[-2])) #Define the MinMaxScaler for target variable.
-        y_scaled = target_var_MinMaxScaler.fit_transform(X = pd.DataFrame(self.Dataset[self.target_var]))[:, 0] #Train the MinMaxScaler and immediately transform the target variable.
 
-
-     
-
-        discretized_feature:pd.Series = pd.cut(x = y_scaled,  #Finally, discretize the labels.
+        discretized_feature:pd.Series = pd.cut(x = self.Dataset[self.target_var],  #Finally, discretize the labels.
                                     bins = self.bins, 
                                     labels = labels)
         
@@ -534,6 +529,7 @@ class ModelComparator():
 
         #Zdyskretyzuj zmienną objaśnianą.
         self.discretize()
+
 
         
         #Narysuj wykresy charakteryzujące (relacje między zmiennymi) oraz (charakterystyki zmiennych).
@@ -587,44 +583,8 @@ class ModelComparator():
                     self.PCA_predictors_idx.append(idx)
                     
 
-
-    # def PorównajCzasyTrenowania(self, type:str = "bez strojenia"):
-    #     """Ta metoda, dla ustalonego, jednego z trzech, trybów trenowania, wyświetla czasy trenowania różncych algorytmów klasyfikujących."""
-
-    #     x_axis_values:list[int] = list(range(1, self.n_splits+1)) #Wartości na osi Ox.
-
-    #     figure  = plt.figure(num = f"Porównanie czasów trenowania, wersja {type}") #Zdefiniuj okno.
-    #     axes = figure.add_subplot() #Zdefiniuj osie.
-
-
-    #     if type == "bez strojenia":
-    #         for model_name in self.Models.keys():
-    #             axes.plot(x_axis_values, self.Untuned_train_time[model_name])
-
-    #     elif type == "ze strojeniem":
-    #         for model_name in self.Models.keys():
-    #             axes.plot(x_axis_values,  self.Tuned_train_time[model_name])
-
-    #     elif type == "z wyborem cech":
-    #         for model_name in self.Models.keys():
-    #             axes.plot(x_axis_values, self.FS_train_time[model_name])
-    #     else:
-    #         raise ValueError("Błędny tryb trenowania")
-
-
-    #     axes.legend(list(self.Models.keys()))
-    #     axes.grid(True)
-    #     axes.spines[["top", "right"]].set_visible(False)
-
-    #     axes.set_xlabel("Numer podziału")
-    #     axes.set_ylabel('Czas tren.')
-    #     axes.set_title(f"Czas trenowania modeli w milisekundach, wersja {type}")
-
-
-
     
 
-  
     def create_predictions_dataframe(self,) -> None:
         """Creates a dataframe for storing the actual labels and labels predicted by each of the model. The column-system of the dataframe is four-level. The syntax for selecting a column is as follows:
         FactVsPrediction[('model_name', 'train_type', 'iter_idx, 'y_type')] \n
@@ -646,25 +606,6 @@ class ModelComparator():
 
 
 
-    
-    # def StworzRamkeCzasowa(self, ) -> pd.DataFrame:
-    #     """"Funkcja tworzy ramkę danych typu pandas, której wartości za indeksowane za pomocą pary (model_name, split_indx).
-    #     W komórce (model_name, split_indx) znajduje się czas wytrenowania modelu model_name w podziale nr split_indx
-    #     """
-        
-    #     Col_indeces:list[str] = list(self.Models.keys())
-    #     Row_indeces:list[int] = list(range(self.n_splits))
-
-    #     return pd.DataFrame(columns = Col_indeces, index = Row_indeces, dtype = np.float64)
-    
-
-    # def PrzygotujRamkiCzasowe(self, ) -> None:
-    #     """Metoda definiuje trzy ramki czasowe, w których będą przechowywane czasy dopasowania modeli strojonych i niestrojonych"""
-    #     self.Untuned_train_time = self.StworzRamkeCzasowa()
-    #     self.Tuned_train_time = self.StworzRamkeCzasowa()
-    #     self.FS_train_time = self.StworzRamkeCzasowa()
-
-    
 
     def transform_predictors(self,  num_predictors_idx:list[int], PCA_predictors_idx:list[int] | None = None, cat_predictors_idx:list[int] | None = None, train_type: str = "noFS") ->  ColumnTransformer:
         """Transform the predictors. The exact  list of transformers is dependent on whether FS is included or not.
@@ -1172,8 +1113,10 @@ class ModelComparator():
         """Metoda wylicza, na podstawie przewidzianych przez modele etykiet, miary dokładności modelu, takie jak: accuracy_score, f1_score, precision_score, recall score.
         Następnie wyniki tych metryk przedstawia na wykresach."""
         #Zdefiniuj różne miary dokładności modeli.
-        metrics:dict[str : "metric"] = {"Accuracy":accuracy_score}
-                 # "F1": f1_score}
+        metrics:dict[str : "metric"] = {"accuracy_score":accuracy_score}
+                 # "f1_score": f1_score,
+                # "precision_score": precision_score,
+        #"recall_score":recall_score}
         
         metrics_names:list[str] = list(metrics.keys())
         
