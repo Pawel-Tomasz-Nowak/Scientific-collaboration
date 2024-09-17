@@ -443,9 +443,9 @@ class ModelComparator():
             figure = plt.figure(num = f"ViolinPlot of {float_feature}")
             axes = figure.add_subplot()
 
-            sns.violinplot(self.Dataset, x = float_feature, hue = Condition, ax = axes)
+            sns.violinplot(self.Dataset, x = float_feature, hue = Condition, ax = axes, density_norm = "count")
 
-            axes.set_title(f"Wykres skrzypcowy dla zmiennej {float_feature}")
+            axes.set_title(f"Violin plot for {float_feature}")
 
             axes.legend([])
 
@@ -584,6 +584,7 @@ class ModelComparator():
                     self.PCA_predictors_idx.append(idx)
                     
 
+        print(self.Dataset["Fuel Type"])
     
 
     def create_predictions_dataframe(self,) -> None:
