@@ -291,7 +291,7 @@ class ModelComparator():
 
 
     def plot_bar_plot(self, FreqTable:pd.Series, cat_feature:str, Showxlabels:bool = False) -> None:
-        """Funkcja rysuje wykres słupkowy na bazie tabeli kontygancji. 
+        """Funkcja rysuje wykres słupkowy na bazie tabeli kontygnacji. 
         1) FreqTable  - Tabela częstotliwości kategori danej zmiennej kategorycznej
         2) CatFeature  - Cecha kategoryczna, której histogram chcemy narysować.
         3) Showxlabel - Zmienna typu bool. Jeżeli ustawiona na True, to etykietki osi Ox są wyświetlane."""
@@ -304,7 +304,7 @@ class ModelComparator():
             barplots_directory.mkdir() #If True, create one.
             
         
-        barplot_figure = plt.figure(num = f"BarPlot for {cat_feature} feature",figsize = (10,5), dpi = 300) #Stwórz płótno, na którym  będzie rysowany wykres.
+        barplot_figure = plt.figure(num = f"Barplot of rel. freqs. for {cat_feature} feature",figsize = (10,5), dpi = 300) #Stwórz płótno, na którym  będzie rysowany wykres.
         axes = barplot_figure.add_subplot()
     
         sns.barplot(x = FreqTable.index, y = FreqTable.values, ax = axes)
@@ -314,9 +314,10 @@ class ModelComparator():
         axes.set_xlabel(f"{cat_feature}")
 
         axes.set_xticklabels([]) #Usuń etykiety tyknięć na osi Ox.
-        axes.spines[["top", "right"]].set_visible(False)
+        axes.spines[["top", "right"]].set_alpha(0.5)
 
-        axes.set_title(f"Barplot of the {cat_feature} feature") #Ustaw tytuł wykresu.
+
+        axes.set_title(f"Barplot of rel. freqs. of the {cat_feature} feature") #Ustaw tytuł wykresu.
 
         axes.set_ylim(0, 1.05*np.max(FreqTable))
 
