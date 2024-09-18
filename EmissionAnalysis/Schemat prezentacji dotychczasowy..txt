@@ -1,0 +1,23 @@
+Opis projektu:
+Slajdy 1-4: Wstępny zarys problemu.
+Slajdy 5-6: Opis algorytmy DecisionTree
+Slajdy 7-8: Opis algorytmu RandomForest
+Slajdy 9-10: Opis algorytmu KNN
+Slajdy 11-13: Opis algorytmu RegresjaLiniowa
+Slajdy 15-16: Opis Algorytmu RegresjaLogistyczna.
+Slajdy 17-20: Opis technik uczenia
+Slajd 21: Opis ekstrakcji cech.
+Slajdy 22-24: Opis metryk dokładności.
+Slajd 25: Wstęp do opisu zmiennych.
+Slajd 26-27: Zmienna make
+Slajd 28-29: Zmienna model
+Slajd 30-31: Zmienna Vehicle Class
+Slajd 32-33: Zmienna Fuel Type
+Slajd 34-35: Zmienna transmission
+Slajd 36: Wyjaśnienie agregacji rzadkich klas.
+Slajd 37-39: Zmienna Cyllinders
+Slajd  40-45: Zmienne paliwowe
+Slajd 46-48: Zmienna Fuel Size
+Slajd 49: Zmienna CO2 Emission
+Slajd 50: Opis dyskretyzacji cech.
+Slajd 51-52: Zmienna CO2 Emission
