@@ -5,11 +5,10 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from sklearn.preprocessing import OneHotEncoder, StandardScaler, FunctionTransformer, OrdinalEncoder, MinMaxScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, FunctionTransformer, OrdinalEncoder, KBinsDiscretizer as KBD
 from sklearn.decomposition import PCA
 from sklearn.compose import ColumnTransformer
-from sklearn.experimental import enable_halving_search_cv
-from sklearn.model_selection import StratifiedShuffleSplit, GridSearchCV, cross_val_score, HalvingGridSearchCV
+from sklearn.model_selection import StratifiedShuffleSplit, GridSearchCV, cross_val_score
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, precision_score, recall_score, f1_score, r2_score, make_scorer
 from sklearn.feature_selection import SequentialFeatureSelector as SFS
@@ -221,7 +220,7 @@ class WrappedSequentialFeatureSelection(SFS):
 
 class ModelComparator():
     def __init__(self,  Filename:str, target_var:str, dtypes:dict[str, str], Models:dict[str,  ], Models_hipparams:dict[str, dict],
-                 n_splits:int = 5, train_size:float = 0.8, test_size:float = 0.2, bins:list[int] = [150, 250], show_plots:bool = True) -> None:
+                 n_splits:int = 5, train_size:float = 0.8, test_size:float = 0.2, bins:list[int] = [150, 250], show_plots:bool = True, quartile_discr:bool = False, quartile_classes:int = 0) -> None:
         """Konstruktor klasy, która trenuje modele. 
         Opis argumentów konstruktora:
         ---------
@@ -233,12 +232,14 @@ class ModelComparator():
         Models:dict[str, "Estimator"] - Słownik, którego wartościami są instancje modeli, które chcemy wytrenować. Kluczami są umowne nazwy modeli. \n
         Models_hipparams:dict[str, dict] - Słownik, którego kluczami są umowne nazwy modeli, a którego wartościami są siatki parametrów danego modelu. \n
 
-        n_splits:int - Liczba podziałów na zbiór treningowy i testowy. \n
-        train_size:float - Odsetek obserwacji treningowych. \n
-        test_size:float - Odsetek obserwacji testowych. \n
+        n_splits:int - Total number of iteration of main loop. \n
+        train_size:float - Percentage of training observations . \n
+        test_size:float - Percentage of testing observations. \n
 
-        bins:list[int]  - Wartości brzegowe dla dyskretyzacji zmiennej docelowej.
-        show_plots: bool - Czy chcesz, aby pokazywano wykresy.
+        bins:list[int]  - Edges of  the classes of the target variables.
+        show_plots: bool - If True, show the plots of descriptive statistics.
+        quartile_discr: bool - If True, we perform discretization by quartiles based on quartile_clasess.
+        quartile_clases:int - (Only works if quartile_disc = True) - the number of quartiles to determine the edges of classes' intervals.
 
         ---------
         """
@@ -271,6 +272,8 @@ class ModelComparator():
         self.test_size:float = test_size
 
         self.show_plots:bool = show_plots
+        self.quartile_discr:bool = quartile_discr
+        self.quartile_classes:int = quartile_classes
 
 
         self.create_predictions_dataframe()
@@ -430,9 +433,7 @@ class ModelComparator():
 
 
 
-            
-
-
+    
     def plot_violinplot(self,Condition:str | None = None) -> None:
         """Ta funkcja rysuje wykresy skrzypcowe dla zmiennych ciągłych.
         1) Dataset - oryginalny zestaw danych.
@@ -488,13 +489,23 @@ class ModelComparator():
 
     def discretize(self) -> None:
         """Discretize the target variable with respect to given bins"""
-        labels:list[int] =  [i+1 for i in range(len(self.bins)-1)] #Find the list of integer-labels.
-     
 
-        discretized_feature:pd.Series = pd.cut(x = self.Dataset[self.target_var],  #Finally, discretize the labels.
-                                    bins = self.bins, 
-                                    labels = labels)
+
+        if self.quartile_discr == True:
+            KBD_inst = KBD(n_bins = self.quartile_classes, encode = "ordinal", strategy  = "quantile")
+            
+
+            discretized_feature:np.ndarray = KBD_inst.fit_transform(X = pd.DataFrame(self.Dataset[self.target_var]))[:, 0]
+
+
+        else:
+            labels:list[int] =  [i+1 for i in range(len(self.bins)-1)] #Find the list of integer-labels.
         
+
+            discretized_feature:pd.Series = pd.cut(x = self.Dataset[self.target_var],  #Finally, discretize the labels.
+                                        bins = self.bins, 
+                                        labels = labels)
+            
 
         self.Dataset[self.target_var_discr] = discretized_feature #Add brand-new discretized feature to the dataset.
 
@@ -584,7 +595,6 @@ class ModelComparator():
                     self.PCA_predictors_idx.append(idx)
                     
 
-        print(self.Dataset["Fuel Type"])
     
 
     def create_predictions_dataframe(self,) -> None:
@@ -597,8 +607,8 @@ class ModelComparator():
 
          """
         self.training_types: list[str] = ["noFS_untuned", "noFS_tuned",
-                                          "FS_untuned","FS_tuned"
-                                          ,"FE"]
+                                          "FS_untuned","FS_tuned"]
+                                         # ,"FE"]
 
         Indeces = pd.MultiIndex.from_product( [list(self.Models.keys()),self.training_types, range(self.n_splits), ["True", "Pred"] ] #Stwórz  hierarchiczny system indeksów dla kolumn.
                                             ,names = ["model","train_type" ,"iter_idx", "y_type"]) #Nadaj poszczególnym poziomom wyjaśnialne i sensowne nazwy.
@@ -818,8 +828,7 @@ class ModelComparator():
             #Trenowanie modeli ze strojeniem hiperparametrów.
             trans_model_paramgrid = {f"Classifier__{param}":model_paramgrid[param] for param in  model_paramgrid.keys()} #Dopasuj nazwy hiperparametrów do estymatora, 
                                                                                          # który nie jest bezpośrednio klasyfikatorem.
-          
-            #GridSearch = HalvingGridSearchCV(estimator = trans_model, param_grid = trans_model_paramgrid, n_jobs = -1, factor = 2, cv = 5, scoring = scoring)
+
             GridSearch = GridSearchCV(estimator = trans_model, param_grid = trans_model_paramgrid, n_jobs = -1, scoring = self.scoring_method, cv = 2,error_score = 0)
           
             
@@ -867,18 +876,16 @@ class ModelComparator():
                                                        ("FAMD", prince.FAMD(n_components = 4)),
                                                        ("Classifier", model)])
             
-            prince.FAMD()
-
-    
             model_trans.fit(X = X_train, y = y_train)
          
-
+        
+        
             y_pred:np.ndarray = model_trans.predict(X = X_test)
 
             
     
-            self.FactVsPrediction[(model_name, "FE", split_idx, "True")] = y_test #Save actual labels to the comparison dataframe.
-            self.FactVsPrediction[(model_name, "FE", split_idx, "Pred")] = y_pred #Save predicted labels to the comparison dataframe.
+            # self.FactVsPrediction[(model_name, "FE", split_idx, "True")] = y_test #Save actual labels to the comparison dataframe.
+            # self.FactVsPrediction[(model_name, "FE", split_idx, "Pred")] = y_pred #Save predicted labels to the comparison dataframe.
 
 
                                                        
@@ -909,10 +916,11 @@ class ModelComparator():
 
         for split_indx, indx_tup in enumerate(SSS_inst.split(X = self.X, y = self.y)):
             train_indx, test_indx = indx_tup #Unpack the tuple of training index and testing index.
-            print(split_indx)
+            print(f"Iteration no {split_indx}")
+
             self.train_without_FS( train_indx = train_indx, test_indx = test_indx, split_indx = split_indx) #Train the models without FeatureSelection.
             self.train_with_FS( train_indx = train_indx, test_indx = test_indx, split_indx = split_indx) #Train the model with FeatureSelection
-            self.train_with_FE(train_idx = train_indx, test_idx = test_indx, split_idx = split_indx)
+            #self.train_with_FE(train_idx = train_indx, test_idx = test_indx, split_idx = split_indx)
 
 
     
@@ -1091,12 +1099,11 @@ class ModelComparator():
                         y_pred:pd.Series = self.FactVsPrediction[(model_name, train_type, split_idx, "Pred")]
 
 
-                        average_type: str | None = "weighted" if metric_name != "Accuracy" else None
-
-                        if metric_name != "Accuracy":
+        
+                        if metric_name != "accuracy_score":
 
                             metric_value:float = metrics[metric_name](y_true = y_true, y_pred = y_pred, 
-                                                                    average = average_type, zero_division = 0)
+                                                                    average = "weighted", zero_division = 0)
                         else:
                             metric_value:float = metrics[metric_name](y_true = y_true, y_pred = y_pred, 
                                                                 )
