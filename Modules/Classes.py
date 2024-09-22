@@ -54,23 +54,22 @@ class RareClassAggregator(TransformerMixin, BaseEstimator):
         if y is not None:
             raise ValueError("Argument 'y' musi być zawsze ustawiony na wartość None!")
         
-        self.X_train: pd.DataFrame = X #Zdefiniuj zbiór treningowy.
+
         self.cat_features = cat_features
         
         self.validate_X(X = X, cat_features = self.cat_features) #Sprawx, czy argument X spełnia podstawowe założenia.
 
 
-      
         self.freq_thresholds:dict[str, float] = {} #Tabela przechowująca wszystkie progi częstotliwościowe dla każdej cechy kategorycznej
-        self.cross_tabs: list[pd.Series] = {} #Słownik służący do przechowywania tabeli krzyżowych każdej zmiennej kategorycznej.
+        self.cross_tabs: dict[str : pd.Series] = {} #Słownik służący do przechowywania tabeli krzyżowych każdej zmiennej kategorycznej.
 
         for cat_feature in self.cat_features:
-            class_crosstab:pd.Series = ( self.X_train[cat_feature]. #Znajdź tabelę krzyżową dla zmiennej kategorycznej 'cat_feature'
+            feature_crosstab:pd.Series = ( X[cat_feature]. #Znajdź tabelę krzyżową dla zmiennej kategorycznej 'cat_feature'
                                          value_counts(normalize = True, sort = True))
 
-            self.freq_thresholds[cat_feature] = class_crosstab.quantile(q = self.q) #Wylicz próg częstotliwościowy dla zmiennej 'cat_feature'
+            self.freq_thresholds[cat_feature] = feature_crosstab.quantile(q = self.q) #Wylicz próg częstotliwościowy dla zmiennej 'cat_feature'
 
-            self.cross_tabs[cat_feature] = class_crosstab
+            self.cross_tabs[cat_feature] = feature_crosstab
 
         
         return self
@@ -82,14 +81,12 @@ class RareClassAggregator(TransformerMixin, BaseEstimator):
 
 
         for cat_feature in cat_features:
-            class_freqtable:pd.Series =  X[cat_feature].value_counts(normalize = True, sort = False) #Wyestymuj znormalizowaną tabelę krzyżową.
-
+            feature_freqtable:pd.Series = self.cross_tabs[cat_feature]  #Znajdź tabelę krzyżową znormalizowaną dla zmiennej jakościowej cat_feature.
 
             #Stwórz agregowaną kolumnę cechy kategorycznej.
-            aggregated_col:pd.Series =  X[cat_feature].apply(func = lambda v:   v if class_freqtable[v] >= self.freq_thresholds[cat_feature] else "Other").astype(dtype = "string")
+            aggregated_col:pd.Series =  X[cat_feature].apply(func = lambda v:   v if feature_freqtable[v] >= self.freq_thresholds[cat_feature] else "Other").astype(dtype = "string")
                                         
             
-
             X.loc[:, cat_feature]  = aggregated_col
      
         return X
@@ -515,7 +512,7 @@ class ModelComparator():
         In other words, we're manually looking for the most optimal candidates for predictors
         """
 
-
+        print("Testowanie numero dos")
         # Agregacja rzadkich klas.
         RareClassAggregator_inst = RareClassAggregator(q = 0.15) #Zdefiniuj obiekt klasy RareClassAggregator, który będzie agregował rzadkie klasy każdej cechy.
 
@@ -873,14 +870,14 @@ class ModelComparator():
       
             
             model_trans: Pipeline  = Pipeline(steps = [("Preprocessing", predictors_transformers), #Define the pipeline for classification.
-                                                       ("FAMD", prince.FAMD(n_components = 4)),
-                                                       ("Classifier", model)])
+                                                       ("FAMD", prince.FAMD(n_components = 4))])
+                                                     #  ("Classifier", model)])
             
             model_trans.fit(X = X_train, y = y_train)
          
+    
         
-        
-            y_pred:np.ndarray = model_trans.predict(X = X_test)
+            #y_pred:np.ndarray = model_trans.predict(X = X_test)
 
             
     
