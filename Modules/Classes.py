@@ -895,7 +895,6 @@ class ModelComparator():
         ---------
         
         ---------
-
         Returns: \n
         None
         """
@@ -923,7 +922,7 @@ class ModelComparator():
     
 
     def boxplot_the_model_four_versions(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]) -> None:
-        """Metoda porównuje wartości miary dokładności dla każdego modelu indywidualnie w wersji bez strojenia i ze strojeniem."""
+        "For each given model, compare the perfomance of its four versions using given metric"
         for model_name in self.model_names:
             for metric_name in metrics_names:
                 boxplot_figure: plt.figure = plt.figure(num  = f"Boxplot comparison for {model_name} model and for {metric_name} metric", dpi = 250)
@@ -970,6 +969,7 @@ class ModelComparator():
         """The methods computes the confussion matrix which will be plotted as a heatmap"""
         for model_name in self.Models.keys():
             for train_type in self.training_types:
+                graph_name: str = rf" $\bf{{{train_type}}}$: Confussion matrix of $\bf{{{model_name}}}$"
                 slicer = pd.IndexSlice
 
                 y_true:pd.Series = self.FactVsPrediction.loc[:, slicer[model_name, train_type, 0, "True"]] #Find the true label for the model and train type
@@ -1004,23 +1004,26 @@ class ModelComparator():
     def plot_models_results_collectively(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]) -> None:
         for metric_name in metrics_names:
             for train_type in self.training_types:
-                metric_figure:plt.Figure = plt.figure(num =f"Comparison of models with respect to {metric_name} metric and {train_type} training type", dpi = 250)
+                graph_name:str = rf" $\bf{{{train_type}}}$: Models perfomance comparison using $\bf{{{metric_name}}}$" #Create an informative and concise title for the plot.
+                
+                metric_figure:plt.Figure = plt.figure(num =graph_name, dpi = 250)
                 metric_axes:plt.axes = metric_figure.add_subplot()
-
 
                 
                 y_values:pd.Series = metrics_dataframe.loc[:, (slice(None), train_type, metric_name)]
 
                 sns.boxplot(data = y_values, ax = metric_axes)
 
-                metric_axes.set_title(f"Comparison of models with respect to {metric_name} metric and {train_type} training type")
+
+            
+                metric_axes.set_title(graph_name)
                 metric_axes.set_xlabel("Model name")
                 metric_axes.set_ylabel("Metric value")
               
                 metric_axes.grid(True, alpha = 0.7)
 
 
-                boxplots_directory = parent_cwd_dir/f"Comparison of models with {metric_name} and {train_type} train_type" #Create a  directory containing all confusion matrices for a given model.
+                boxplots_directory = parent_cwd_dir/graph_name #Create a  directory containing all confusion matrices for a given model.
 
                 if not boxplots_directory.exists():
                     boxplots_directory.mkdir()
@@ -1036,10 +1039,12 @@ class ModelComparator():
     def plot_median_values(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]) -> None:
         for metric_name in metrics_names:
             for train_type in self.training_types:
-                medianmetric_figure: plt.figuer = plt.figure(num = f"Comparison of median values for models, {train_type} training type, {metric_name} metric")
-                medianmetric_axes: plt.axes = medianmetric_figure.add_subplot()
+                graph_name: str = rf" $\bf{{{train_type}}}$: Comparison of median values of $\bf{{{metric_name}}}$ of each model" #Create an informative and concise title for the plot.
 
-                index_slicer = pd.IndexSlice
+                medianmetric_figure = plt.figure(num = graph_name) #Create a figure for dispalying the median values.
+                medianmetric_axes = medianmetric_figure.add_subplot() #Create an axes associated with that figure.
+
+                index_slicer = pd.IndexSlice #Define the instance of IndexSlice to make dataframes indexing easy.
 
                 median_dataframe:pd.DataFrame = metrics_dataframe.loc[:, index_slicer[:, train_type, metric_name]].median(axis = 0).reset_index(level = [1,2], drop = True).reset_index()
                 median_dataframe.columns =["Model", 'Median']
@@ -1051,17 +1056,17 @@ class ModelComparator():
 
                 medianmetric_axes.set_xlabel("Model", labelpad = 5)
                 medianmetric_axes.set_ylabel(f"Median value", labelpad = 5)
-                medianmetric_axes.set_title(f"Comparison of median value of {metric_name}   for {train_type} training typex")
+                medianmetric_axes.set_title(graph_name)
 
                 medianmetric_axes.set_ylim(0.99*min_value, 1)
 
 
-                medvalues_directory = parent_cwd_dir/f"Comparison of medvalues with {metric_name} and {train_type} train_type" #Create a  directory containing all confusion matrices for a given model.
+                medvalues_directory = parent_cwd_dir/graph_name #Create a  directory containing all confusion matrices for a given model.
 
                 if not medvalues_directory.exists():
                     medvalues_directory.mkdir()
 
-                medvalues_filename = medvalues_directory/f"medvalues for {metric_name} and {train_type}.png"
+                medvalues_filename = medvalues_directory/f"median values for {metric_name} and {train_type}.png"
 
                 if medvalues_filename.exists():
                     medvalues_filename.unlink()
