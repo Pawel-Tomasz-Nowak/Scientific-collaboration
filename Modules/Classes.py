@@ -13,7 +13,7 @@ from sklearn.multioutput import MultiOutputRegressor
 from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, precision_score, recall_score, f1_score, r2_score, make_scorer
 from sklearn.feature_selection import SequentialFeatureSelector as SFS
 from sklearn.pipeline import Pipeline
-from sklearn.base import TransformerMixin, BaseEstimator
+from sklearn.base import TransformerMixin, BaseEstimator, clone
 import prince
 
 from string import ascii_uppercase
@@ -106,11 +106,14 @@ class MultiOutputLinearRegression(MultiOutputRegressor):
     def fit(self, X:np.ndarray, y:np.ndarray):
         y:np.ndarray[int] =  OneHotEncoder(sparse_output = False).fit_transform(X = y.reshape(-1,1))
 
+
         super().fit(X = X, y = y)
 
 
     def predict(self, X) -> np.ndarray[int]:
-        return super().predict(X = X).argmax(axis = 1)
+        y_pred: np.ndarray = super().predict(X = X).argmax(axis = 1)
+     
+        return y_pred
 
 
 class WrappedSequentialFeatureSelection(SFS):
@@ -496,12 +499,12 @@ class ModelComparator():
 
 
         else:
-            labels:list[int] =  [i+1 for i in range(len(self.bins)-1)] #Find the list of integer-labels.
+            class_labels:list[int] =  [i for i in range(len(self.bins)-1)] #Find the list of class-labels.
         
 
             discretized_feature:pd.Series = pd.cut(x = self.Dataset[self.target_var],  #Finally, discretize the labels.
                                         bins = self.bins, 
-                                        labels = labels)
+                                        labels = class_labels)
             
 
         self.Dataset[self.target_var_discr] = discretized_feature #Add brand-new discretized feature to the dataset.
@@ -512,7 +515,7 @@ class ModelComparator():
         In other words, we're manually looking for the most optimal candidates for predictors
         """
 
-        print("Testowanie numero dos")
+
         # Agregacja rzadkich klas.
         RareClassAggregator_inst = RareClassAggregator(q = 0.15) #Zdefiniuj obiekt klasy RareClassAggregator, który będzie agregował rzadkie klasy każdej cechy.
 
@@ -603,10 +606,9 @@ class ModelComparator():
         'y_type' is a type of y labels: actual or predicted. \n
 
          """
-        self.training_types: list[str] = ["noFS_untuned", "noFS_tuned",
-                                          "FS_untuned","FS_tuned"]
-                                         # ,"FE"]
-
+        self.training_types: list[str] = ["noFS-untuned", "noFS-tuned"]
+                                        #  "FS-untuned","FS-tuned"]
+                                    
         Indeces = pd.MultiIndex.from_product( [list(self.Models.keys()),self.training_types, range(self.n_splits), ["True", "Pred"] ] #Stwórz  hierarchiczny system indeksów dla kolumn.
                                             ,names = ["model","train_type" ,"iter_idx", "y_type"]) #Nadaj poszczególnym poziomom wyjaśnialne i sensowne nazwy.
         
@@ -715,15 +717,13 @@ class ModelComparator():
             if var.startswith("ORD"): #How can we recognize categorical variable? Well, it's been  transformed using OrdinalEncoder which adds prefix "ORD" to the variable' name.
                 cat_vars_idx.append(i) #Add the index.
             
-                                        
-
             else: #Otherwise it's a numerical predictor.
                 num_vars_idx.append(i)
 
 
 
         for model_name in self.Models.keys():
-            model  = self.Models[model_name] #The machine learning model we're training.
+            model  = clone(self.Models[model_name]) #The machine learning model we're training.
 
             model_paramgrid = self.Models_hipparams[model_name] #The parameters_space for the model.
             trans_model_paramgrid = {f"Model__{param}":model_paramgrid[param] for param in  model_paramgrid.keys()} #Adjust the names of the hyperparameters. Why? Because de facto we're tuning SeqFeatSel and we wanna tune the model.
@@ -733,7 +733,7 @@ class ModelComparator():
 
             SFS_inst = WrappedSequentialFeatureSelection(cat_vars_idx = cat_vars_idx, num_vars_idx = num_vars_idx,
                                               estimator = model, 
-                                              n_features_to_select = 4, n_jobs = -1, cv = 2, scoring = self.scoring_method)
+                                              n_features_to_select = "auto", tol = 0.05, n_jobs = -1, cv = 2, scoring = self.scoring_method)
             
             model_FS_tuned: Pipeline = Pipeline(steps = [("FeatSel", SFS_inst), ("Model", model)])
         
@@ -743,7 +743,7 @@ class ModelComparator():
                                       n_jobs = -1, scoring = self.scoring_method, cv = 2, error_score = 0) 
             
             GridSearch.fit(X = X_train, y = y_train) #Train the GridSearch with training data.
-    
+
 
             y_pred_tuned:np.ndarray = GridSearch.best_estimator_.predict(X = X_test) #Predict the labels using the FS_tuned model.
 
@@ -756,11 +756,11 @@ class ModelComparator():
 
             #Save the  both actual and predictes labels  for both FS_tuned and FS_untuned models.
 
-            self.FactVsPrediction[(model_name, "FS_tuned", split_indx, "True")] = y_test
-            self.FactVsPrediction[(model_name, "FS_tuned", split_indx, "Pred")] = y_pred_tuned
+            self.FactVsPrediction[(model_name, "FS-tuned", split_indx, "True")] = y_test
+            self.FactVsPrediction[(model_name, "FS-tuned", split_indx, "Pred")] = y_pred_tuned
 
-            self.FactVsPrediction[(model_name,"FS_untuned", split_indx, "True")] = y_test
-            self.FactVsPrediction[(model_name,"FS_untuned",split_indx, "Pred")] = y_pred_untuned
+            self.FactVsPrediction[(model_name,"FS-untuned", split_indx, "True")] = y_test
+            self.FactVsPrediction[(model_name,"FS-untuned",split_indx, "Pred")] = y_pred_untuned
 
 
 
@@ -799,7 +799,7 @@ class ModelComparator():
 
         for model_name in self.Models.keys():
         
-            model: 'estimator' = self.Models[model_name] #Instancja danego modelu.
+            model: 'estimator' = clone(self.Models[model_name]) #Instancja danego modelu.
 
             model_paramgrid: dict[str, dict] = self.Models_hipparams[model_name] #Siatka hiperparametrów modelu.
 
@@ -817,8 +817,8 @@ class ModelComparator():
 
       
 
-            self.FactVsPrediction[(model_name, "noFS_untuned", split_indx, "True")] = y_test
-            self.FactVsPrediction[(model_name, "noFS_untuned", split_indx, "Pred")] = y_pred
+            self.FactVsPrediction[(model_name, "noFS-untuned", split_indx, "True")] = y_test
+            self.FactVsPrediction[(model_name, "noFS-untuned", split_indx, "Pred")] = y_pred
         
 
 
@@ -833,60 +833,11 @@ class ModelComparator():
             y_pred:np.ndarray = GridSearch.predict(X = X_test)
 
 
-            self.FactVsPrediction[(model_name, "noFS_tuned", split_indx, "True")] = y_test
-            self.FactVsPrediction[(model_name, "noFS_tuned", split_indx, "Pred")] = y_pred
+            self.FactVsPrediction[(model_name, "noFS-tuned", split_indx, "True")] = y_test
+            self.FactVsPrediction[(model_name, "noFS-tuned", split_indx, "Pred")] = y_pred
 
 
-
-    def train_with_FE(self, train_idx:np.ndarray, test_idx:np.ndarray, split_idx:int) -> None:
-        """Perfoms training the machine learning models using FeatureExtraction technique named FAMD.
-        Parameters:
-        --------- 
-        train_indx : np.ndarray : A numpy ndarray of training indeces. \n
-        test_indx : np.ndarray :  A numpy ndarray of testing indices . \n
-        split_indx : int : Split indicator. \n
-        --------
-
-        Returns: 
-        None
-        """
-
-
-        X_train:np.ndarray = self.X[train_idx, :] #Training set of possible predictors.
-        X_test:np.ndarray = self.X[test_idx, :] #Testing set of possible predictors.
-
-        y_train:np.ndarray = self.y[train_idx] #Training set of target variable.
-        y_test:np.ndarray = self.y[test_idx] #Testing set of target variable
-
-
-        predictors_transformers = self.transform_predictors(num_predictors_idx = self.num_predictors_idx, PCA_predictors_idx = self.PCA_predictors_idx, 
-                                                            cat_predictors_idx = self.cat_predictors_idx, train_type = "FE")
-        
-
-    
-    
-        for model_name in self.model_names:
-            model = self.Models[model_name] #The instance of the machine learning model.
-      
-            
-            model_trans: Pipeline  = Pipeline(steps = [("Preprocessing", predictors_transformers), #Define the pipeline for classification.
-                                                       ("FAMD", prince.FAMD(n_components = 4))])
-                                                     #  ("Classifier", model)])
-            
-            model_trans.fit(X = X_train, y = y_train)
-         
-    
-        
-            #y_pred:np.ndarray = model_trans.predict(X = X_test)
-
-            
-    
-            # self.FactVsPrediction[(model_name, "FE", split_idx, "True")] = y_test #Save actual labels to the comparison dataframe.
-            # self.FactVsPrediction[(model_name, "FE", split_idx, "Pred")] = y_pred #Save predicted labels to the comparison dataframe.
-
-
-                                                       
-
+                                        
     def train_models(self) -> None:
         """"The  method  train the models with two versions: without FeatureSelection and with FeatureSelection. To split the dataset into training and testing subsets,
         a StratifiedShuffleSplit is defined so that the probabilities of targer's modalities are preserved.
@@ -903,7 +854,6 @@ class ModelComparator():
                                                                   test_size = self.test_size, 
                                                                   train_size = self.train_size)
         
-
         self.X:np.ndarray = self.Dataset[self.predictors].to_numpy() #The set X of predictors.
         self.y:np.ndarray = self.Dataset[self.target_var_discr].to_numpy()  #Discretized target variable.
         
@@ -914,9 +864,13 @@ class ModelComparator():
             train_indx, test_indx = indx_tup #Unpack the tuple of training index and testing index.
             print(f"Iteration no {split_indx}")
 
+            y_train = self.y[train_indx]
+            y_test = self.y[test_indx]
+
+
+
             self.train_without_FS( train_indx = train_indx, test_indx = test_indx, split_indx = split_indx) #Train the models without FeatureSelection.
-            self.train_with_FS( train_indx = train_indx, test_indx = test_indx, split_indx = split_indx) #Train the model with FeatureSelection
-            #self.train_with_FE(train_idx = train_indx, test_idx = test_indx, split_idx = split_indx)
+           # self.train_with_FS( train_indx = train_indx, test_indx = test_indx, split_indx = split_indx) #Train the model with FeatureSelection
 
 
     
@@ -970,6 +924,9 @@ class ModelComparator():
         for model_name in self.Models.keys():
             for train_type in self.training_types:
                 graph_name: str = rf" $\bf{{{train_type}}}$: Confussion matrix of $\bf{{{model_name}}}$"
+                file_name:str = rf"{train_type} - Confussion matrix of {model_name}"
+                dir_name: str = rf"{train_type} - Confussion matrices"
+
                 slicer = pd.IndexSlice
 
                 y_true:pd.Series = self.FactVsPrediction.loc[:, slicer[model_name, train_type, 0, "True"]] #Find the true label for the model and train type
@@ -983,16 +940,17 @@ class ModelComparator():
                 conf_axes = conf_figure.add_subplot()
 
 
-
                 ConfusionMatrixDisplay.from_predictions(y_true = y_true, y_pred = y_pred, normalize = "true", ax = conf_axes)
-                conf_axes.set_title(f"Confusion matrix for {model_name}, {train_type}")
 
-                conf_matrix_directory = parent_cwd_dir/f"Confussion matrix for {model_name} model" #Create a  directory containing all confusion matrices for a given model.
+              
+                conf_axes.set_title(graph_name)
+
+                conf_matrix_directory = parent_cwd_dir/dir_name #Create a  directory containing all confusion matrices for a given model.
 
                 if not conf_matrix_directory.exists():
                     conf_matrix_directory.mkdir()
 
-                conf_matrix_filename = conf_matrix_directory/f"Confussion matrix for {model_name} version_{train_type}.png"
+                conf_matrix_filename = conf_matrix_directory/file_name
 
                 if conf_matrix_filename.exists():
                     conf_matrix_filename.unlink()
@@ -1004,7 +962,9 @@ class ModelComparator():
     def plot_models_results_collectively(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]) -> None:
         for metric_name in metrics_names:
             for train_type in self.training_types:
-                graph_name:str = rf" $\bf{{{train_type}}}$: Models perfomance comparison using $\bf{{{metric_name}}}$" #Create an informative and concise title for the plot.
+                graph_name:str = rf"$\bf{{{train_type}}}$: Models perfomance comparison using $\bf{{{metric_name}}}$" #Create an informative and concise title for the plot.
+                file_name:str = rf"{train_type} - Models perfomance comparison using {metric_name}"
+                dir_name:str = rf"Models perfomance comparison"
                 
                 metric_figure:plt.Figure = plt.figure(num =graph_name, dpi = 250)
                 metric_axes:plt.axes = metric_figure.add_subplot()
@@ -1023,12 +983,12 @@ class ModelComparator():
                 metric_axes.grid(True, alpha = 0.7)
 
 
-                boxplots_directory = parent_cwd_dir/graph_name #Create a  directory containing all confusion matrices for a given model.
+                boxplots_directory = parent_cwd_dir/dir_name #Create a  directory containing all confusion matrices for a given model.
 
                 if not boxplots_directory.exists():
                     boxplots_directory.mkdir()
 
-                box_matrix_filename = boxplots_directory/f"Boxplot of models for {metric_name} and {train_type}.png"
+                box_matrix_filename = boxplots_directory/file_name
 
                 if box_matrix_filename.exists():
                     box_matrix_filename.unlink()
@@ -1040,6 +1000,8 @@ class ModelComparator():
         for metric_name in metrics_names:
             for train_type in self.training_types:
                 graph_name: str = rf" $\bf{{{train_type}}}$: Comparison of median values of $\bf{{{metric_name}}}$ of each model" #Create an informative and concise title for the plot.
+                dir_name:str = rf"{train_type} Medianvalues of all models computed using"
+                file_name = rf"{train_type} Medianvalues of all models computed using {metric_name}"
 
                 medianmetric_figure = plt.figure(num = graph_name) #Create a figure for dispalying the median values.
                 medianmetric_axes = medianmetric_figure.add_subplot() #Create an axes associated with that figure.
@@ -1061,12 +1023,12 @@ class ModelComparator():
                 medianmetric_axes.set_ylim(0.99*min_value, 1)
 
 
-                medvalues_directory = parent_cwd_dir/graph_name #Create a  directory containing all confusion matrices for a given model.
+                medvalues_directory = parent_cwd_dir/dir_name #Create a  directory containing all confusion matrices for a given model.
 
                 if not medvalues_directory.exists():
                     medvalues_directory.mkdir()
 
-                medvalues_filename = medvalues_directory/f"median values for {metric_name} and {train_type}.png"
+                medvalues_filename = medvalues_directory/file_name
 
                 if medvalues_filename.exists():
                     medvalues_filename.unlink()
@@ -1101,8 +1063,8 @@ class ModelComparator():
                         y_pred:pd.Series = self.FactVsPrediction[(model_name, train_type, split_idx, "Pred")]
 
 
-        
-                        if metric_name != "accuracy_score":
+                    
+                        if metric_name != "accuracy-score":
 
                             metric_value:float = metrics[metric_name](y_true = y_true, y_pred = y_pred, 
                                                                     average = "weighted", zero_division = 0)
@@ -1124,10 +1086,8 @@ class ModelComparator():
         """Metoda wylicza, na podstawie przewidzianych przez modele etykiet, miary dokładności modelu, takie jak: accuracy_score, f1_score, precision_score, recall score.
         Następnie wyniki tych metryk przedstawia na wykresach."""
         #Zdefiniuj różne miary dokładności modeli.
-        metrics:dict[str : "metric"] = {"accuracy_score":accuracy_score}
-                 # "f1_score": f1_score,
-                # "precision_score": precision_score,
-        #"recall_score":recall_score}
+        metrics:dict[str : "metric"] = {"accuracy-score":accuracy_score, "f1-score":f1_score}
+    
         
         metrics_names:list[str] = list(metrics.keys())
         
