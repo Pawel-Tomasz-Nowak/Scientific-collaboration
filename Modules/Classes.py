@@ -218,6 +218,10 @@ class WrappedSequentialFeatureSelection(SFS):
 
 
 
+
+
+
+
 class ModelComparator():
     def __init__(self,  Filename:str, target_var:str, dtypes:dict[str, str], Models:dict[str,  ], Models_hipparams:dict[str, dict],
                  n_splits:int = 5, train_size:float = 0.8, test_size:float = 0.2, bins:list[int] = [150, 250], show_plots:bool = True, quartile_discr:bool = False, quartile_classes:int = 0) -> None:
@@ -249,9 +253,12 @@ class ModelComparator():
         self.Dataset:pd.DataFrame = self.read_dataframe(filename = Filename, sep = ';', dec_sep = ',') 
         self.features:list[str] = self.Dataset.columns
  
-        
-        self.Cat_features:list[str] = [feature for feature in self.features if dtypes[feature] == "string"]
-        self.Num_features:list[str] =  list(self.Dataset.select_dtypes(include = "number").columns)
+
+ 
+        self.cat_features:list[str] = [feature for feature in self.features if isinstance(dtypes[feature], pd.CategoricalDtype)]
+        self.num_features:list[str] = [feature for feature in self.features if pd.api.types.is_numeric_dtype(dtypes[feature])]
+
+        self.Num_features:list[str] =  [feature for feature in self.features if dtypes[feature] in [np.float64, np.int8]]
     
      
         self.target_var:str = target_var
@@ -382,22 +389,34 @@ class ModelComparator():
 
     
 
-    def plot_KDE(self, Condition:str | None = None) -> None:
-        """Ta funkcja rysuje wykresy gęstości prawdopodobieństwa dla zmiennych ciągłych"""
+    def plot_KDEorBar(self, Condition:str | None = None) -> None:
+        """Ta funkcja rysuje gęstości lub słupki dla zmiennych ciągłych i zmiennych dyskretnych odpowiednio"""
 
-        for float_feature in self.Num_features:
-            figure = plt.figure(num = f"KDE_plot_{float_feature}")
+        for num_feature in self.features:
+            num_feature_dtype = self.dtypes[num_feature]
+            is_int: bool = pd.api.types.is_integer_dtype(num_feature_dtype) #Find out if the feature's dtype is integer. If not, it's float.
+
+            figure_name:str = f"Bar_plot_{num_feature}" if is_int else f"KDE_plot_{num_feature}"
+
+            figure = plt.figure(num = figure_name)
             axes = figure.add_subplot()
 
-            sns.kdeplot(data = self.Dataset, x = float_feature, ax = axes, hue = Condition)
-            axes.set_title(f"Density of {float_feature} feature")
+
+            plot_title:str = f"Barplot of {num_feature}" if is_int else f"KDE of {num_feature}"
+
+            if not is_int:
+                sns.kdeplot(data = self.Dataset, x = num_feature, ax = axes, hue = Condition)
+            else:
+                sns.barplot(data = self.Dataset, x = num_feature, ax = axes, hue = Condition)
+
+            axes.set_title(plot_title)
 
             KDEplots_directory = parent_cwd_dir/"KDEplots" #Find the path to directory containing boxplots image. If the directory doesn't exists, create one.
 
             if not KDEplots_directory.exists(): #Check if the KDE for the feature doesn't exist.
                 KDEplots_directory.mkdir() #If True, create one.
 
-            KDEplot_filename: path.Path = KDEplots_directory/f"Conditioned KDE for {float_feature.replace("/", "_")}.png" #Creaet a UNIQUE  name for the KDE path for a given feature..
+            KDEplot_filename: path.Path = KDEplots_directory/f"Conditioned KDE for {num_feature.replace("/", "_")}.png" #Creaet a UNIQUE  name for the KDE path for a given feature..
 
             if KDEplot_filename.exists():
                 KDEplot_filename.unlink()
