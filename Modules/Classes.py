@@ -19,7 +19,7 @@ import prince
 from string import ascii_uppercase
 
 import pathlib as path
-
+#test
 parent_cwd_dir = path.Path.cwd().parent #Find the parent directory for current working directory (CWD).
 
 class RareClassAggregator(TransformerMixin, BaseEstimator):
@@ -278,6 +278,9 @@ class ModelComparator():
 
         self.create_predictions_dataframe()
         self.model_names:list[str] = list(self.Models.keys())
+
+
+
     
         
 
@@ -606,14 +609,17 @@ class ModelComparator():
         'y_type' is a type of y labels: actual or predicted. \n
 
          """
-        self.training_types: list[str] = ["noFS-untuned", "noFS-tuned"]
-                                        #  "FS-untuned","FS-tuned"]
+        self.training_types: list[str] = ["noFS-untuned", "noFS-tuned",
+                                         "FS-untuned","FS-tuned"]
                                     
-        Indeces = pd.MultiIndex.from_product( [list(self.Models.keys()),self.training_types, range(self.n_splits), ["True", "Pred"] ] #Stwórz  hierarchiczny system indeksów dla kolumn.
+        col_indeces = pd.MultiIndex.from_product( [list(self.Models.keys()),self.training_types, range(self.n_splits), ["True", "Pred"] ] #Stwórz  hierarchiczny system indeksów dla kolumn.
                                             ,names = ["model","train_type" ,"iter_idx", "y_type"]) #Nadaj poszczególnym poziomom wyjaśnialne i sensowne nazwy.
         
+        row_indeces = np.arange(0, stop = np.ceil( self.Dataset.shape[0]* self.test_size))
+        
 
-        self.FactVsPrediction:pd.DataFrame =  pd.DataFrame(data = None,  columns = Indeces, dtype = np.int16)
+        self.FactVsPrediction:pd.DataFrame =  pd.DataFrame(data = None,  columns = col_indeces,  index = row_indeces,
+                                                           dtype = np.int16)
 
 
 
@@ -870,7 +876,7 @@ class ModelComparator():
 
 
             self.train_without_FS( train_indx = train_indx, test_indx = test_indx, split_indx = split_indx) #Train the models without FeatureSelection.
-           # self.train_with_FS( train_indx = train_indx, test_indx = test_indx, split_indx = split_indx) #Train the model with FeatureSelection
+            self.train_with_FS( train_indx = train_indx, test_indx = test_indx, split_indx = split_indx) #Train the model with FeatureSelection
 
 
     
@@ -1089,8 +1095,14 @@ class ModelComparator():
         metrics:dict[str : "metric"] = {"accuracy-score":accuracy_score, "f1-score":f1_score}
     
         
+
+        if self.quartile_discr:
+            metrics:dict[str : "metric"] = {"f1-score":f1_score}
+        else:
+            metrics:dict[str : "metric"] = {"accuracy-score":accuracy_score, "f1-score":f1_score}
+
         metrics_names:list[str] = list(metrics.keys())
-        
+            
 
         metrics_dataframe:pd.DataFrame = self.compute_perf_metric(metrics  = metrics, metrics_names = metrics_names)
 
@@ -1100,5 +1112,5 @@ class ModelComparator():
         self.plot_median_values(metrics_dataframe = metrics_dataframe, metrics_names = metrics_names)
         self.plot_confussion_matrix()
 
-                    
-            
+                        
+                
