@@ -247,19 +247,29 @@ class ModelComparator():
 
         ---------
         """
-     
-        self.dtypes:dict[str, "datatype"] = dtypes
-
+        #Reading the target dataset.
         self.Dataset:pd.DataFrame = self.read_dataframe(filename = Filename, sep = ';', dec_sep = ',') 
-        self.features:list[str] = self.Dataset.columns
- 
 
- 
-        self.cat_features:list[str] = [feature for feature in self.features if isinstance(dtypes[feature], pd.CategoricalDtype)]
-        self.num_features:list[str] = [feature for feature in self.features if pd.api.types.is_numeric_dtype(dtypes[feature])]
 
-        self.Num_features:list[str] =  [feature for feature in self.features if dtypes[feature] in [np.float64, np.int8]]
+        self.features:list[str] = [feature.replace("/", "|") for feature in self.Dataset.columns] #List of modified names of all features
+        self.dtypes:dict[str, "dtype"] = {self.features[i]: dtypes[feature] for i, feature in enumerate(dtypes.keys())} #Don't forget to modify the names in the dtypes
+            
     
+        self.Dataset.columns = self.features
+        self.Dataset.astype(dtype = self.dtypes)
+
+
+
+        #Note: We're applying a following classification of variables:
+        #A variable is (categorical only and only if its dtype is 'string') or (continous only and only if its dtype is 'Float') or (discrete only and only if its dtype is 'Int')
+        #A variable is numerical only and only if it's continous or discrete.
+        self.cat_features:list[str] = [feature for feature in self.features if self.dtypes[feature] == "string"] #Find the categorical variables.
+
+        self.discr_features:list[str] = [feature for feature in self.features if pd.api.types.is_integer_dtype(self.dtypes[feature])] #Find the discrete variables.
+        self.cont_features:list[str] = [feature for feature in self.features if pd.api.types.is_float_dtype(self.dtypes[feature])] #Find the continous variables.
+
+        self.num_features:list[str] = self.discr_features + self.cont_features #The set of all numerical variables.
+
      
         self.target_var:str = target_var
         self.bins:list[int] = bins
@@ -286,6 +296,7 @@ class ModelComparator():
         self.create_predictions_dataframe()
         self.model_names:list[str] = list(self.Models.keys())
 
+        
 
 
     
@@ -294,50 +305,45 @@ class ModelComparator():
     def read_dataframe(self, filename:str, 
                       sep:str =';', dec_sep:str =',') -> pd.DataFrame:
         """Odczytuje plik o nazwie filename i wprowadza dane z pliku do ramki danych."""
-     
-    
         Dataset:pd.DataFrame = pd.read_csv(filename,
-                            sep=sep, dtype = self.dtypes, decimal = dec_sep) #Wczytaj plik z danymi.
+                            sep=sep, decimal = dec_sep) #Wczytaj plik z danymi.
 
 
         return Dataset
 
 
-    def plot_bar_plot(self, FreqTable:pd.Series, cat_feature:str, Showxlabels:bool = False) -> None:
+    def plot_barplot(self, feature:str, Showxlabels:bool = False) -> None:
         """Funkcja rysuje wykres słupkowy na bazie tabeli kontygnacji. 
         1) FreqTable  - Tabela częstotliwości kategori danej zmiennej kategorycznej
-        2) CatFeature  - Cecha kategoryczna, której histogram chcemy narysować.
+        2) CatFeature  - Cecha kategoryczna badana.
         3) Showxlabel - Zmienna typu bool. Jeżeli ustawiona na True, to etykietki osi Ox są wyświetlane."""
-        
-
-
-        barplots_directory = parent_cwd_dir/"BarPlots" #Find the path to directory containing all barplots. If the directory doesn't exists, create one.
-
-        if not barplots_directory.exists(): #Check if the barplots_directory doesn't exist.
-            barplots_directory.mkdir() #If True, create one.
-            
-        
-        barplot_figure = plt.figure(num = f"Barplot of rel. freqs. for {cat_feature} feature",figsize = (10,5), dpi = 300) #Stwórz płótno, na którym  będzie rysowany wykres.
+        barplot_figure = plt.figure(num = f"Barplot of rel. freqs. for {feature} feature",figsize = (10,5), dpi = 300) #Stwórz płótno, na którym  będzie rysowany wykres.
         axes = barplot_figure.add_subplot()
     
-        sns.barplot(x = FreqTable.index, y = FreqTable.values, ax = axes)
+
+        sns.histplot(data = self.Dataset, x= feature, stat = "probability", ax = axes)
 
 
         axes.set_ylabel(f"Rel. freq. of class.") #Ustaw etykietke pionowej osi.
-        axes.set_xlabel(f"{cat_feature}")
+        axes.set_xlabel(f"{feature}")
 
         axes.set_xticklabels([]) #Usuń etykiety tyknięć na osi Ox.
         axes.spines[["top", "right"]].set_alpha(0.5)
 
 
-        axes.set_title(f"Barplot of rel. freqs. of the {cat_feature} feature") #Ustaw tytuł wykresu.
+        axes.set_title(rf"Barplot of rel. freqs. of the $\bf{{{feature}}}$ feature") #Ustaw tytuł wykresu.
 
-        axes.set_ylim(0, 1.05*np.max(FreqTable))
 
         if Showxlabels == True:
-            axes.set_xticklabels(labels = FreqTable.index)
+            axes.set_xticklabels(labels = self.Dataset[feature].unique())
 
-        barplot_filename: path.Path = barplots_directory/f"BarPlot_for_{cat_feature.replace("/","_")}.png" #Creaet a UNIQUE  name for the barplot for a given feature.
+        barplots_directory = parent_cwd_dir/"BarPlots" #Find the path to directory containing all barplots. 
+                                                        #If the directory doesn't exists, create one.
+
+        if not barplots_directory.exists(): #Check if the barplots_directory doesn't exist.
+            barplots_directory.mkdir() #If True, create one.
+        
+        barplot_filename: path.Path = barplots_directory/f"BarPlot_for_{feature.replace("/","_")}.png" #Creaet a UNIQUE  name for the barplot for a given feature.
 
         if  barplot_filename.exists():
             barplot_filename.unlink()
@@ -351,16 +357,15 @@ class ModelComparator():
         """Funkcja wylicza macierz korelaji dla zmiennych z listy FloatFeatures. Ponadto, rysuje tę macierz korelacji na wykresie, aby można
         było sobie uzmysłowić relacje między zmiennymi"""
 
-        CorrMatrix:pd.DataFrame =  self.Dataset[self.Num_features].corr(method = "pearson")
+        CorrMatrix:pd.DataFrame =  self.Dataset[self.cont_features].corr(method = "pearson")
 
-        corr_mat_fig:plt.figure = plt.figure(num = "Correlation matrix",figsize=(10, 5), dpi = 250)
+        corr_mat_fig:plt.figure = plt.figure(num = "Correlation matrix", figsize=(10, 5), dpi = 250)
         corr_mat_axes:plt.axes = corr_mat_fig.add_subplot()
-
 
 
         sns.heatmap(CorrMatrix, annot=True, cmap='magma', vmin=-1, vmax=1, ax = corr_mat_axes)
 
-        plt.title('Correlation matrix for numeric continous variables')
+        corr_mat_axes.set_title(r"$\bf{Correlation matrix}$ for numeric continous variables")
         corr_mat_fig.savefig("")
     
         corrmat_directory = parent_cwd_dir/"CorrelationMatrix" #Find the path to directory containing correlation_matrix image. If the directory doesn't exists, create one.
@@ -379,7 +384,6 @@ class ModelComparator():
         
             
 
-
     def delete_quasiid_feature(self) -> None:
         """Funkcja usuwa quasi-identyfikator zmienną oraz jedną obserwację, która zawiera klasę, która występuje tylko raz."""
 
@@ -389,144 +393,135 @@ class ModelComparator():
 
     
 
-    def plot_KDEorBar(self, Condition:str | None = None) -> None:
-        """Ta funkcja rysuje gęstości lub słupki dla zmiennych ciągłych i zmiennych dyskretnych odpowiednio"""
-
-        for num_feature in self.features:
-            num_feature_dtype = self.dtypes[num_feature]
-            is_int: bool = pd.api.types.is_integer_dtype(num_feature_dtype) #Find out if the feature's dtype is integer. If not, it's float.
-
-            figure_name:str = f"Bar_plot_{num_feature}" if is_int else f"KDE_plot_{num_feature}"
-
-            figure = plt.figure(num = figure_name)
+    def plot_condidtioned_distribution(self, Condition:str) -> None:
+        """Function draws conditioned KDEPlots for continous variables or barplots for discrete variables"""
+        
+        for num_feature in self.num_features:
+            figure = plt.figure()
             axes = figure.add_subplot()
 
 
-            plot_title:str = f"Barplot of {num_feature}" if is_int else f"KDE of {num_feature}"
+            plot_type: str ="Barplot" if num_feature in self.discr_features else "KDEplot"
 
-            if not is_int:
+            plot_title:str = rf"Conditioned {plot_type} of {num_feature}" 
+
+
+            if num_feature in self.cont_features:
                 sns.kdeplot(data = self.Dataset, x = num_feature, ax = axes, hue = Condition)
             else:
-                sns.barplot(data = self.Dataset, x = num_feature, ax = axes, hue = Condition)
+                sns.histplot(data = self.Dataset, x = num_feature, ax = axes, hue = Condition, stat = "probability")
 
             axes.set_title(plot_title)
+            axes.grid(True)
 
-            KDEplots_directory = parent_cwd_dir/"KDEplots" #Find the path to directory containing boxplots image. If the directory doesn't exists, create one.
 
-            if not KDEplots_directory.exists(): #Check if the KDE for the feature doesn't exist.
-                KDEplots_directory.mkdir() #If True, create one.
+            KDEplots_directory = parent_cwd_dir/"Conditioned_Distribution" #Find the path to directory containing boxplots image. If the directory doesn't exists, create one.
 
-            KDEplot_filename: path.Path = KDEplots_directory/f"Conditioned KDE for {num_feature.replace("/", "_")}.png" #Creaet a UNIQUE  name for the KDE path for a given feature..
+            if not KDEplots_directory.exists(): #Make sure the plot doesn't exist.
+                KDEplots_directory.mkdir() #create one.
+
+            KDEplot_filename: path.Path = KDEplots_directory/fr"{plot_title}.png" #Creaet a UNIQUE  name for the KDE path for a given feature..
 
             if KDEplot_filename.exists():
                 KDEplot_filename.unlink()
 
-            axes.grid(True)
+            
             figure.savefig(fname = KDEplot_filename)
             
 
 
 
-    def plot_boxplot(self, Condition: str | None = None) -> None:
-        """Ta funkcja rysuje wykresy pudełkowe dla zmiennych ciągłych.
-        1) Dataset - oryginalny zestaw danych.
-        2) FloatFeatures - zmienne numeryczne"""
+    def conditioned_boxplot(self, Condition: str) -> None:
+        """Draws conditioned boxplot for numerical variables using seaborn.boxplot function.
+        """
 
-        for float_feature in self.Num_features:
-            figure = plt.figure(num = f"BOX_plot_{float_feature}")
-            axes = figure.add_subplot()
+        compacted_boxplot_figure, list_of_axes = plt.subplots(ncols = len(self.num_features), 
+                                                              figsize = (10, 10), dpi= 250, num = "Compacted graph of condidtioned boxplots")
 
-            sns.boxplot(self.Dataset, x = float_feature, hue = Condition, ax = axes)
+        for col_idx, num_feature in enumerate(self.num_features):
+            axes = list_of_axes[col_idx]
+        
+            sns.boxplot(self.Dataset, x = num_feature, hue = Condition, ax = axes)
 
-            axes.set_title(f"Boxplot for  {float_feature} feature")
+            axes.set_title(f"Boxplot for  {num_feature} feature")
 
-            boxplots_directory = parent_cwd_dir/"Boxplots" #Find the path to directory containing boxplots image. If the directory doesn't exists, create one.
 
-            if not boxplots_directory.exists(): #Check if the boxplot for the feature doesn't exist.
-                boxplots_directory.mkdir() #If True, create one.
+        boxplots_directory = parent_cwd_dir/"Boxplots" #Find the path to directory containing boxplots image. If the directory doesn't exists, create one.
 
-            boxplot_filename: path.Path = boxplots_directory/f"Conditioned Boxplot for {float_feature.replace("/", "_")}.png" #Creaet a UNIQUE  name for the boxplot path for a given feature..
+        if not boxplots_directory.exists(): #Check if the boxplot for the feature doesn't exist.
+            boxplots_directory.mkdir() #If True, create one.
 
-            if boxplot_filename.exists():
-                boxplot_filename.unlink()
+        boxplot_filename: path.Path = boxplots_directory/"Conditioned Boxplots.png" #Create a name for the .png file.
 
-            figure.savefig(fname = boxplot_filename)
-            
+        if boxplot_filename.exists():
+            boxplot_filename.unlink()
+
+        compacted_boxplot_figure.savefig(fname = boxplot_filename)
+        
 
 
 
     
-    def plot_violinplot(self,Condition:str | None = None) -> None:
-        """Ta funkcja rysuje wykresy skrzypcowe dla zmiennych ciągłych.
-        1) Dataset - oryginalny zestaw danych.
-        2) FloatFeatures - zmienne numeryczne
-        3) Condition = Pewna zmienna kategoryczna, za pomocą której stworzą się warunkowe wykresy skrzypcowe ze względu przynależność do klasy."""
+    def plot_distribution(self) -> None:
+        """Draws (violinplots for continous variables) or (boxplots for discrete variables)"""
 
-        for float_feature in self.Num_features:
-            figure = plt.figure(num = f"ViolinPlot of {float_feature}")
+        for feature in self.num_features:
+            plot_type:str = "Barplot" if feature in self.discr_features else "Violinplot" #Determine the type of the plot based on the variable's dtype.
+            plot_title: str = f"{plot_type} for {feature}"
+
+            figure = plt.figure(num = f"Violin(Bar) plot for {feature}")
             axes = figure.add_subplot()
+         
+            if feature in self.discr_features:
+                sns.boxplot(data = self.Dataset,
+                            x = feature, 
+                            ax = axes)
+            else:
+                sns.violinplot(self.Dataset, 
+                               x = feature, 
+                               ax = axes, density_norm = "count")
 
-            sns.violinplot(self.Dataset, x = float_feature, hue = Condition, ax = axes, density_norm = "count")
 
-            axes.set_title(f"Violin plot for {float_feature}")
+            axes.set_title(plot_title)
 
             axes.legend([])
 
             axes.grid(True, alpha = 0.6)
             axes.spines[['top','right']].set_visible(False)
 
-            violinplots_directory = parent_cwd_dir/"ViolinPlots" #Find the path to directory containing violinplot image. If the directory doesn't exists, create one.
+            violinplots_directory = parent_cwd_dir/"DistributionPlots" #Find the path to directory containing violinplot image. If the directory doesn't exists, create one.
 
             if not violinplots_directory.exists(): #Check if the violinplot for the feature doesn't exist.
                 violinplots_directory.mkdir() #If True, create one.
 
-            violinplot_filename: path.Path = violinplots_directory/f"ViolinPlot for {float_feature.replace("/", "_")}.png" #Creaet a UNIQUE  name for the violinplot path for a given feature..
+            violinplot_filename: path.Path = violinplots_directory/f"ViolinPlot for {feature.replace("/", "_")}.png" #Creaet a UNIQUE  name for the violinplot path for a given feature..
 
             if violinplot_filename.exists():
                 violinplot_filename.unlink()
 
-            figure.savefig(fname = violinplot_filename)
-            
+     
 
-
-    def plot_pairplot(self,   Condition: str | None = None) -> None:
-        """Funkcja rysuje wykres parowy dla wszystkich par zmiennych ciągłych.
-        """
-        mode:str  = "Conditioned pairplot" if Condition != None else "Unconditioned pairplot"
-
-        pairplot = sns.pairplot(self.Dataset, hue = Condition , diag_kind = "kde")
-
-        pairplots_directory  = parent_cwd_dir/"PairPlots" #Find the path to directory containing parplots plots. If the directory doesn't exists, create one.
-
-        if not pairplots_directory.exists():
-            pairplots_directory.mkdir()
-
-        pairplot_filename: path.Path = pairplots_directory/f"{mode}.png"
-
-        if pairplot_filename.exists():
-            pairplot_filename.unlink()
-
-        pairplot.savefig(fname = pairplot_filename)
-    
 
     def discretize(self) -> None:
         """Discretize the target variable with respect to given bins"""
 
-
         if self.quartile_discr == True:
             KBD_inst = KBD(n_bins = self.quartile_classes, encode = "ordinal", strategy  = "quantile")
+
+            self.class_labels:list[int] =  [i for i in range(self.quartile_classes-1)] #Find the list of class-labels.
             
 
             discretized_feature:np.ndarray = KBD_inst.fit_transform(X = pd.DataFrame(self.Dataset[self.target_var]))[:, 0]
 
 
+
         else:
-            class_labels:list[int] =  [i for i in range(len(self.bins)-1)] #Find the list of class-labels.
+            self.class_labels:list[int] =  [i for i in range(len(self.bins)-1)] #Find the list of class-labels.
         
 
             discretized_feature:pd.Series = pd.cut(x = self.Dataset[self.target_var],  #Finally, discretize the labels.
                                         bins = self.bins, 
-                                        labels = class_labels)
+                                        labels = self.class_labels)
             
 
         self.Dataset[self.target_var_discr] = discretized_feature #Add brand-new discretized feature to the dataset.
@@ -537,66 +532,58 @@ class ModelComparator():
         In other words, we're manually looking for the most optimal candidates for predictors
         """
 
+        #Nadaj zdyskretyzowanej zmiennej docelowej nazwę.
+        self.target_var_discr = self.target_var +"_disc"
 
         # Agregacja rzadkich klas.
         RareClassAggregator_inst = RareClassAggregator(q = 0.15) #Zdefiniuj obiekt klasy RareClassAggregator, który będzie agregował rzadkie klasy każdej cechy.
 
         RareClassAggregator_inst.fit(X = self.Dataset, y = None,  #Znajdź odpowiednie parametry  estymatora.
-                                     cat_features = self.Cat_features)
+                                     cat_features = self.cat_features)
 
-        self.Dataset:pd.DataFrame = RareClassAggregator_inst.transform(X = self.Dataset, cat_features = self.Cat_features) #Przekształć obecny zbiór danych.
-
-        cross_tabs:list[pd.Series] = RareClassAggregator_inst.cross_tabs #To jest lista zawierająca tablice krzyżowe każdej cechy
-
-        for cat_feature in self.Cat_features:
-            cros_tab:pd.Series = cross_tabs[cat_feature]
+        self.Dataset:pd.DataFrame = RareClassAggregator_inst.transform(X = self.Dataset, cat_features = self.cat_features) #Przekształć obecny zbiór danych.
 
 
+        for discr_feature in self.cat_features + self.discr_features:
             if self.show_plots is True:
-                self.plot_bar_plot(FreqTable = cros_tab, cat_feature = cat_feature, Showxlabels = False)
-            
-        #Kasowanie zbędnej obserwacji oraz quasi-id kolumny
+                self.plot_barplot(feature = discr_feature, Showxlabels = False)
+
+
+        #Delete the extreme-outsider record and redundant column.
         self.delete_quasiid_feature()
 
-        #Nadaj zdyskretyzowanej zmiennej docelowej nazwę.
-        self.target_var_discr = self.target_var +"_disc"
 
-        #Zdyskretyzuj zmienną objaśnianą.
+        #Discretize the response variable.
         self.discretize()
 
 
         
         #Narysuj wykresy charakteryzujące (relacje między zmiennymi) oraz (charakterystyki zmiennych).
-        #RYSOWANIE MACIERZY KORELACJI DLA ZMIENNYCH NUMERYCZNYCH
-
-        target_var_discr_histogram:pd.Series = self.Dataset[self.target_var_discr].value_counts(normalize = True, sort = False)
-
+  
         if self.show_plots is True:
+            #Drawing a corelation matrix for continous variables.
             self.compute_and_draw_correlation_matrix()
 
             #RYSOWANIE WYKRESÓW SKRZYPCOWYCH DLA ZMIENNYCH NUMERYCZNYCH
-            self.plot_violinplot()
-
-            #Rysowanie wykresu parowego dla zmiennych numerycznych
-            self.plot_pairplot()
+            self.plot_distribution()
 
         
-
-            self.plot_bar_plot(FreqTable = target_var_discr_histogram,   #Narysuj wykres słupkowy częstotliwości dla zmiennej celu zdyskretyzowanej.
-                            cat_feature =  self.target_var_discr, 
+        
+            self.plot_barplot(feature =  self.target_var_discr,  #Draw a barplot for discretized target feature.
                             Showxlabels = False)
             
         
-            self.plot_KDE(Condition = self.target_var_discr)  #Wykresy gęstości warunkowe
-            self.plot_boxplot(Condition = self.target_var_discr) #Wykresy pudełkowe warunkowe
+            self.plot_condidtioned_distribution(Condition = self.target_var_discr)  #Wykresy gęstości warunkowe
+            self.conditioned_boxplot(Condition = self.target_var_discr) #Wykresy pudełkowe warunkowe
 
         
-            self.plot_pairplot(Condition = self.target_var_discr)
-
+    
 
         #Ustal ostateczny zbiór predyktorów.
-        self.predictors:list[str] = ['Make', "Vehicle Class",'Engine Size(L)','Cylinders','Transmission','Fuel Type',"Fuel Consumption City (L/100 km)", "Fuel Consumption Hwy (L/100 km)",
-                                                                                       "Fuel Consumption Comb (L/100 km)","Fuel Consumption Comb (mpg)"]
+        pre_predictors:list[str] = ['Make', "Vehicle Class",'Engine Size(L)','Cylinders','Transmission','Fuel Type',"Fuel Consumption City (L/100 km)", "Fuel Consumption Hwy (L/100 km)",  
+                                                                                   "Fuel Consumption Comb (L/100 km)","Fuel Consumption Comb (mpg)"]
+        self.predictors = [predictor.replace("\", "|"") for predictor in  pre_predictors]
+
       
         #Podziel zbiór predyktorów na zmienne numeryczne oraz zmienne kategoryczne odpowiednio.
         self.num_predictors_idx:list[int] = []
@@ -607,10 +594,10 @@ class ModelComparator():
        
 
         for idx, feature in enumerate(self.predictors):
-            if self.dtypes[feature] == "string": #Sprawdzanie, czy zmienna jest zmienną kategoryczną.
+            if self.cat_features: #Sprawdzanie, czy zmienna jest zmienną kategoryczną.
                 self.cat_predictors_idx.append(idx) #Dodaj indeks zmiennej kategorycznej do listy zmiennych kategorycznych.
 
-            elif self.dtypes[feature] in [np.float32, np.float64, np.int16,np.int32, np.int64]: #Sprawdzanie, czy zmienna jest typu numerycznego.
+            elif feature in self.num_features: #Sprawdzanie, czy zmienna jest typu numerycznego.
                 self.num_predictors_idx.append(idx) #Dodaj indeks zmiennej numerycznej do listy zmiennych numerycznych.
 
                 if feature.startswith("Fuel"): #Znajdź zmienną, które podlegają PCA.
@@ -673,15 +660,15 @@ class ModelComparator():
         
 
       
-        if train_type == "noFS": #If  we're not including FeatureSelection, we directly encoding categorical variables using OneHotEncoder.
+        if train_type == "noFS": #If  we're not including FeatureSelection, we're simply encoding categorical variables using OneHotEncoder.
             Predictors_transformer = ColumnTransformer(transformers = [("OHE", OneHotEncoder(sparse_output = False), cat_predictors_idx),
                                                                             ("Numerical", noPCA_transformer, noPCA_predictors_idx),
                                                                             ("PCA", PCA_transformer, PCA_predictors_idx)],
                                                                             remainder = "passthrough"
                                                                         )
             
-        elif train_type == "FS": #However, if we are including FeatureSelection, first we encode categorical variables using OrdinalEncoder. OneHotEncoder for this type of training will be applied inside WrappedFeatureSelection class.
-        
+        elif train_type == "FS": #However, if we are including FeatureSelection, first we encode categorical variables using OrdinalEncoder. 
+                                    #OneHotEncoder for this type of training will be applied inside WrappedFeatureSelection class.
             Predictors_transformer = ColumnTransformer(transformers = [("ORD", OrdinalEncoder(), cat_predictors_idx),
                                                                             ("Numerical", noPCA_transformer, noPCA_predictors_idx),
                                                                             ("PCA", PCA_transformer, PCA_predictors_idx)],
@@ -689,12 +676,9 @@ class ModelComparator():
                                                                       )
             Predictors_transformer.set_output(transform = "pandas") #Set the output type to output
 
-        elif train_type == "FE":
-            Predictors_transformer = ColumnTransformer(transformers = [("Scaler", StandardScaler(), num_predictors_idx)], remainder = "passthrough")
-            Predictors_transformer.set_output(transform = "pandas")
-
+        
         else:
-            raise ValueError(f"Unsupported type of training (train_type) was passed ")
+            raise ValueError(f"Unsupported type of training {train_type} was passed ")
 
 
                 
@@ -900,7 +884,7 @@ class ModelComparator():
 
     
 
-    def boxplot_the_model_four_versions(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]) -> None:
+    def compare_four_train_types(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]) -> None:
         "For each given model, compare the perfomance of its four versions using given metric"
         for model_name in self.model_names:
             for metric_name in metrics_names:
@@ -946,14 +930,22 @@ class ModelComparator():
 
     def plot_confussion_matrix(self) -> None:
         """The methods computes the confussion matrix which will be plotted as a heatmap"""
-        for model_name in self.Models.keys():
-            for train_type in self.training_types:
-                graph_name: str = rf" $\bf{{{train_type}}}$: Confussion matrix of $\bf{{{model_name}}}$"
-                file_name:str = rf"{train_type} - Confussion matrix of {model_name}"
-                dir_name: str = rf"{train_type} - Confussion matrices"
+        file_name:str = rf"Compacted plot of all confussion matrix."
+        dir_name:str = rf"{train_type} - Compated confusion matrix"
+
+
+        sel_training_types:list[str] = ["noFS_untuned", "FS_tuned"]
+
+        conf_figure, list_of_conf_axes = plt.subplots(nrows = len(sel_training_types), 
+                                                      ncols = len(self.model_names),
+                                                      figsize = (15, 10), num = "Compacted confussion matrix", dpi = 250
+                                                      )
+
+        for col_idx, model_name in enumerate(self.model_names):
+            for row_idx, train_type in enumerate(sel_training_types):
+                graph_name: str = rf" $\bf{{{train_type}}}$: Confussion matrix of $\bf{{{model_name}}}$" #The name of the axes an individual confusion matrix will be plotted on.
 
                 slicer = pd.IndexSlice
-
                 y_true:pd.Series = self.FactVsPrediction.loc[:, slicer[model_name, train_type, 0, "True"]] #Find the true label for the model and train type
 
                 #y_pred:pd.Series = self.FactVsPrediction.loc[:, slicer[model_name, train_type, :, "Pred"]].mode(axis=1)[0] #Find the predicted label for the model and train type.
@@ -961,13 +953,11 @@ class ModelComparator():
 
 
            
-                conf_figure = plt.figure(num = f"{model_name} conf_matrix_{train_type}", dpi = 250)
-                conf_axes = conf_figure.add_subplot()
+                conf_axes:plt.axes = list_of_conf_axes[row_idx, col_idx]
 
 
                 ConfusionMatrixDisplay.from_predictions(y_true = y_true, y_pred = y_pred, normalize = "true", ax = conf_axes)
 
-              
                 conf_axes.set_title(graph_name)
 
                 conf_matrix_directory = parent_cwd_dir/dir_name #Create a  directory containing all confusion matrices for a given model.
@@ -1126,10 +1116,11 @@ class ModelComparator():
         metrics_dataframe:pd.DataFrame = self.compute_perf_metric(metrics  = metrics, metrics_names = metrics_names)
 
 
-        self.plot_models_results_collectively(metrics_dataframe = metrics_dataframe, metrics_names = metrics_names)
-        self.boxplot_the_model_four_versions(metrics_dataframe = metrics_dataframe, metrics_names = metrics_names)
-        self.plot_median_values(metrics_dataframe = metrics_dataframe, metrics_names = metrics_names)
+        #self.plot_models_results_collectively(metrics_dataframe = metrics_dataframe, metrics_names = metrics_names)
+        #self.compare_four_train_types(metrics_dataframe = metrics_dataframe, metrics_names = metrics_names)
+        #self.plot_median_values(metrics_dataframe = metrics_dataframe, metrics_names = metrics_names)
         self.plot_confussion_matrix()
+
 
                         
                 
