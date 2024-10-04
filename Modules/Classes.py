@@ -251,7 +251,7 @@ class ModelComparator():
         self.Dataset:pd.DataFrame = self.read_dataframe(filename = Filename, sep = ';', dec_sep = ',') 
 
 
-        self.features:list[str] = [feature.replace("/", "|") for feature in self.Dataset.columns] #List of modified names of all features
+        self.features:list[str] = [feature.replace("/", "~") for feature in self.Dataset.columns] #List of modified names of all features
         self.dtypes:dict[str, "dtype"] = {self.features[i]: dtypes[feature] for i, feature in enumerate(dtypes.keys())} #Don't forget to modify the names in the dtypes
             
     
@@ -435,29 +435,28 @@ class ModelComparator():
         """Draws conditioned boxplot for numerical variables using seaborn.boxplot function.
         """
 
-        compacted_boxplot_figure, list_of_axes = plt.subplots(ncols = len(self.num_features), 
-                                                              figsize = (10, 10), dpi= 250, num = "Compacted graph of condidtioned boxplots")
-
-        for col_idx, num_feature in enumerate(self.num_features):
-            axes = list_of_axes[col_idx]
+        for num_feature in self.num_features:
+            figure = plt.figure(num = f"Conditioned boxplot for {num_feature}", dpi = 250,
+                                figsize = (10, 7.5))
+        
+            axes = figure.add_subplot()
         
             sns.boxplot(self.Dataset, x = num_feature, hue = Condition, ax = axes)
 
-            axes.set_title(f"Boxplot for  {num_feature} feature")
+            axes.set_title(rf"Boxplot for $\bf{{{num_feature}}}$ feature")
 
+            boxplots_directory = parent_cwd_dir/"Boxplots" #Find the path to directory containing boxplots image. If the directory doesn't exists, create one.
 
-        boxplots_directory = parent_cwd_dir/"Boxplots" #Find the path to directory containing boxplots image. If the directory doesn't exists, create one.
+            if not boxplots_directory.exists(): #Check if the boxplot for the feature doesn't exist.
+                boxplots_directory.mkdir() #If True, create one.
 
-        if not boxplots_directory.exists(): #Check if the boxplot for the feature doesn't exist.
-            boxplots_directory.mkdir() #If True, create one.
+            boxplot_filename: path.Path = boxplots_directory/f"Conditioned boxplot for {num_feature}.png" #Create a name for the .png file.
 
-        boxplot_filename: path.Path = boxplots_directory/"Conditioned Boxplots.png" #Create a name for the .png file.
+            if boxplot_filename.exists():
+                boxplot_filename.unlink()
 
-        if boxplot_filename.exists():
-            boxplot_filename.unlink()
-
-        compacted_boxplot_figure.savefig(fname = boxplot_filename)
-        
+            figure.savefig(fname = boxplot_filename)
+            
 
 
 
@@ -580,9 +579,13 @@ class ModelComparator():
     
 
         #Ustal ostateczny zbiór predyktorów.
-        pre_predictors:list[str] = ['Make', "Vehicle Class",'Engine Size(L)','Cylinders','Transmission','Fuel Type',"Fuel Consumption City (L/100 km)", "Fuel Consumption Hwy (L/100 km)",  
-                                                                                   "Fuel Consumption Comb (L/100 km)","Fuel Consumption Comb (mpg)"]
-        self.predictors = [predictor.replace("\", "|"") for predictor in  pre_predictors]
+        pre_predictors:list[str] = ['Make', "Vehicle Class",'Engine Size(L)','Cylinders','Transmission','Fuel Type',
+                                    "Fuel Consumption City (L/100 km)", "Fuel Consumption Hwy (L/100 km)",  
+                                        "Fuel Consumption Comb (L/100 km)","Fuel Consumption Comb (mpg)"]
+       
+        self.predictors = [predictor.replace("/", "~") for predictor in pre_predictors]
+    
+   
 
       
         #Podziel zbiór predyktorów na zmienne numeryczne oraz zmienne kategoryczne odpowiednio.
