@@ -251,7 +251,7 @@ class ModelComparator():
         self.Dataset:pd.DataFrame = self.read_dataframe(filename = Filename, sep = ';', dec_sep = ',') 
 
 
-        self.features:list[str] = [feature.replace("/", "~") for feature in self.Dataset.columns] #List of modified names of all features
+        self.features:list[str] = [feature for feature in self.Dataset.columns] #List of modified names of all features
         self.dtypes:dict[str, "dtype"] = {self.features[i]: dtypes[feature] for i, feature in enumerate(dtypes.keys())} #Don't forget to modify the names in the dtypes
             
     
@@ -269,6 +269,7 @@ class ModelComparator():
         self.cont_features:list[str] = [feature for feature in self.features if pd.api.types.is_float_dtype(self.dtypes[feature])] #Find the continous variables.
 
         self.num_features:list[str] = self.discr_features + self.cont_features #The set of all numerical variables.
+
 
      
         self.target_var:str = target_var
@@ -297,11 +298,6 @@ class ModelComparator():
         self.model_names:list[str] = list(self.Models.keys())
 
         
-
-
-    
-        
-
     def read_dataframe(self, filename:str, 
                       sep:str =';', dec_sep:str =',') -> pd.DataFrame:
         """Odczytuje plik o nazwie filename i wprowadza dane z pliku do ramki danych."""
@@ -331,7 +327,7 @@ class ModelComparator():
         axes.spines[["top", "right"]].set_alpha(0.5)
 
 
-        axes.set_title(rf"Barplot of rel. freqs. of the $\bf{{{feature}}}$ feature") #Ustaw tytuł wykresu.
+        axes.set_title(rf"Barplot of rel. freqs. of the {feature} feature") #Ustaw tytuł wykresu.
 
 
         if Showxlabels == True:
@@ -343,7 +339,7 @@ class ModelComparator():
         if not barplots_directory.exists(): #Check if the barplots_directory doesn't exist.
             barplots_directory.mkdir() #If True, create one.
         
-        barplot_filename: path.Path = barplots_directory/f"BarPlot_for_{feature.replace("/","_")}.png" #Creaet a UNIQUE  name for the barplot for a given feature.
+        barplot_filename: path.Path = barplots_directory/f"BarPlot_for_{feature}.png" #Creaet a UNIQUE  name for the barplot for a given feature.
 
         if  barplot_filename.exists():
             barplot_filename.unlink()
@@ -365,7 +361,7 @@ class ModelComparator():
 
         sns.heatmap(CorrMatrix, annot=True, cmap='magma', vmin=-1, vmax=1, ax = corr_mat_axes)
 
-        corr_mat_axes.set_title(r"$\bf{Correlation matrix}$ for numeric continous variables")
+        corr_mat_axes.set_title(r"Correlation matrix for numeric continous variables")
         corr_mat_fig.savefig("")
     
         corrmat_directory = parent_cwd_dir/"CorrelationMatrix" #Find the path to directory containing correlation_matrix image. If the directory doesn't exists, create one.
@@ -402,8 +398,9 @@ class ModelComparator():
 
 
             plot_type: str ="Barplot" if num_feature in self.discr_features else "KDEplot"
-
             plot_title:str = rf"Conditioned {plot_type} of {num_feature}" 
+           
+
 
 
             if num_feature in self.cont_features:
@@ -436,14 +433,13 @@ class ModelComparator():
         """
 
         for num_feature in self.num_features:
-            figure = plt.figure(num = f"Conditioned boxplot for {num_feature}", dpi = 250,
-                                figsize = (10, 7.5))
+            figure = plt.figure(num = f"Conditioned boxplot for {num_feature}", dpi = 250)
         
             axes = figure.add_subplot()
         
             sns.boxplot(self.Dataset, x = num_feature, hue = Condition, ax = axes)
 
-            axes.set_title(rf"Boxplot for $\bf{{{num_feature}}}$ feature")
+            axes.set_title(rf"Boxplot for {num_feature} feature")
 
             boxplots_directory = parent_cwd_dir/"Boxplots" #Find the path to directory containing boxplots image. If the directory doesn't exists, create one.
 
@@ -465,10 +461,10 @@ class ModelComparator():
         """Draws (violinplots for continous variables) or (boxplots for discrete variables)"""
 
         for feature in self.num_features:
-            plot_type:str = "Barplot" if feature in self.discr_features else "Violinplot" #Determine the type of the plot based on the variable's dtype.
+            plot_type:str = "Boxplot" if feature in self.discr_features else "Violinplot" #Determine the type of the plot based on the variable's dtype.
             plot_title: str = f"{plot_type} for {feature}"
 
-            figure = plt.figure(num = f"Violin(Bar) plot for {feature}")
+            figure = plt.figure(num = f"{plot_type} for {feature}")
             axes = figure.add_subplot()
          
             if feature in self.discr_features:
@@ -493,10 +489,12 @@ class ModelComparator():
             if not violinplots_directory.exists(): #Check if the violinplot for the feature doesn't exist.
                 violinplots_directory.mkdir() #If True, create one.
 
-            violinplot_filename: path.Path = violinplots_directory/f"ViolinPlot for {feature.replace("/", "_")}.png" #Creaet a UNIQUE  name for the violinplot path for a given feature..
+            violinplot_filename: path.Path = violinplots_directory/f"{plot_type} for {feature}.png" #Creaet a UNIQUE  name for the violinplot path for a given feature..
 
             if violinplot_filename.exists():
                 violinplot_filename.unlink()
+
+            figure.savefig(fname = violinplot_filename)
 
      
 
@@ -543,9 +541,9 @@ class ModelComparator():
         self.Dataset:pd.DataFrame = RareClassAggregator_inst.transform(X = self.Dataset, cat_features = self.cat_features) #Przekształć obecny zbiór danych.
 
 
-        for discr_feature in self.cat_features + self.discr_features:
+        for finite_feature in self.cat_features + self.discr_features:
             if self.show_plots is True:
-                self.plot_barplot(feature = discr_feature, Showxlabels = False)
+                self.plot_barplot(feature = finite_feature, Showxlabels = False)
 
 
         #Delete the extreme-outsider record and redundant column.
@@ -583,8 +581,8 @@ class ModelComparator():
                                     "Fuel Consumption City (L/100 km)", "Fuel Consumption Hwy (L/100 km)",  
                                         "Fuel Consumption Comb (L/100 km)","Fuel Consumption Comb (mpg)"]
        
-        self.predictors = [predictor.replace("/", "~") for predictor in pre_predictors]
-    
+        self.predictors = [predictor for predictor in pre_predictors]
+     
    
 
       
@@ -597,7 +595,7 @@ class ModelComparator():
        
 
         for idx, feature in enumerate(self.predictors):
-            if self.cat_features: #Sprawdzanie, czy zmienna jest zmienną kategoryczną.
+            if feature in self.cat_features: #Sprawdzanie, czy zmienna jest zmienną kategoryczną.
                 self.cat_predictors_idx.append(idx) #Dodaj indeks zmiennej kategorycznej do listy zmiennych kategorycznych.
 
             elif feature in self.num_features: #Sprawdzanie, czy zmienna jest typu numerycznego.
@@ -605,9 +603,9 @@ class ModelComparator():
 
                 if feature.startswith("Fuel"): #Znajdź zmienną, które podlegają PCA.
                     self.PCA_predictors_idx.append(idx)
+            
                     
 
-    
 
     def create_predictions_dataframe(self,) -> None:
         """Creates a dataframe for storing the actual labels and labels predicted by each of the model. The column-system of the dataframe is four-level. The syntax for selecting a column is as follows:
@@ -618,8 +616,8 @@ class ModelComparator():
         'y_type' is a type of y labels: actual or predicted. \n
 
          """
-        self.training_types: list[str] = ["noFS-untuned", "noFS-tuned",
-                                         "FS-untuned","FS-tuned"]
+        self.training_types: list[str] = ["noFS_untuned", "noFS_tuned",
+                                         "FS_untuned","FS_tuned"]
                                     
         col_indeces = pd.MultiIndex.from_product( [list(self.Models.keys()),self.training_types, range(self.n_splits), ["True", "Pred"] ] #Stwórz  hierarchiczny system indeksów dla kolumn.
                                             ,names = ["model","train_type" ,"iter_idx", "y_type"]) #Nadaj poszczególnym poziomom wyjaśnialne i sensowne nazwy.
@@ -768,11 +766,11 @@ class ModelComparator():
 
             #Save the  both actual and predictes labels  for both FS_tuned and FS_untuned models.
 
-            self.FactVsPrediction[(model_name, "FS-tuned", split_indx, "True")] = y_test
-            self.FactVsPrediction[(model_name, "FS-tuned", split_indx, "Pred")] = y_pred_tuned
+            self.FactVsPrediction[(model_name, "FS_tuned", split_indx, "True")] = y_test
+            self.FactVsPrediction[(model_name, "FS_tuned", split_indx, "Pred")] = y_pred_tuned
 
-            self.FactVsPrediction[(model_name,"FS-untuned", split_indx, "True")] = y_test
-            self.FactVsPrediction[(model_name,"FS-untuned",split_indx, "Pred")] = y_pred_untuned
+            self.FactVsPrediction[(model_name,"FS_untuned", split_indx, "True")] = y_test
+            self.FactVsPrediction[(model_name,"FS_untuned",split_indx, "Pred")] = y_pred_untuned
 
 
 
@@ -796,18 +794,14 @@ class ModelComparator():
                                                                         cat_predictors_idx = self.cat_predictors_idx,
                                                                         train_type = "noFS")
         
-        
-        
         X_train:np.ndarray = self.X[train_indx, :] #Treningowy zbiór predyktorów.
         X_test:np.ndarray = self.X[test_indx, :] #Testowy zbiór predyktorów.
 
         y_train: np.ndarray = self.y[train_indx]
         y_test: np.ndarray = self.y[test_indx]
             
-        
-
+   
     
-
 
         for model_name in self.Models.keys():
         
@@ -820,8 +814,7 @@ class ModelComparator():
                                        )
                  
             #Trenowanie modeli bez strojenia hiperparametrów.
-  
-     
+
             trans_model.fit(X = X_train, y = y_train)
 
 
@@ -829,8 +822,8 @@ class ModelComparator():
 
       
 
-            self.FactVsPrediction[(model_name, "noFS-untuned", split_indx, "True")] = y_test
-            self.FactVsPrediction[(model_name, "noFS-untuned", split_indx, "Pred")] = y_pred
+            self.FactVsPrediction[(model_name, "noFS_untuned", split_indx, "True")] = y_test
+            self.FactVsPrediction[(model_name, "noFS_untuned", split_indx, "Pred")] = y_pred
         
 
 
@@ -845,8 +838,8 @@ class ModelComparator():
             y_pred:np.ndarray = GridSearch.predict(X = X_test)
 
 
-            self.FactVsPrediction[(model_name, "noFS-tuned", split_indx, "True")] = y_test
-            self.FactVsPrediction[(model_name, "noFS-tuned", split_indx, "Pred")] = y_pred
+            self.FactVsPrediction[(model_name, "noFS_tuned", split_indx, "True")] = y_test
+            self.FactVsPrediction[(model_name, "noFS_tuned", split_indx, "Pred")] = y_pred
 
 
                                         
@@ -880,7 +873,7 @@ class ModelComparator():
             y_test = self.y[test_indx]
 
 
-
+        
             self.train_without_FS( train_indx = train_indx, test_indx = test_indx, split_indx = split_indx) #Train the models without FeatureSelection.
             self.train_with_FS( train_indx = train_indx, test_indx = test_indx, split_indx = split_indx) #Train the model with FeatureSelection
 
@@ -933,54 +926,53 @@ class ModelComparator():
 
     def plot_confussion_matrix(self) -> None:
         """The methods computes the confussion matrix which will be plotted as a heatmap"""
-        file_name:str = rf"Compacted plot of all confussion matrix."
-        dir_name:str = rf"{train_type} - Compated confusion matrix"
-
+        dir_name:str = rf"Compacted confusion matrices"
 
         sel_training_types:list[str] = ["noFS_untuned", "FS_tuned"]
 
-        conf_figure, list_of_conf_axes = plt.subplots(nrows = len(sel_training_types), 
-                                                      ncols = len(self.model_names),
-                                                      figsize = (15, 10), num = "Compacted confussion matrix", dpi = 250
-                                                      )
+       
+        for train_type in sel_training_types:
+            for model_name in self.model_names:
+                    graph_name: str = rf"Conf. Matrix, {model_name}" #The name of the axes an individual confusion matrix will be plotted on.
+                    file_name = f"{train_type} -ConfMatrixOf{model_name}.png"
 
-        for col_idx, model_name in enumerate(self.model_names):
-            for row_idx, train_type in enumerate(sel_training_types):
-                graph_name: str = rf" $\bf{{{train_type}}}$: Confussion matrix of $\bf{{{model_name}}}$" #The name of the axes an individual confusion matrix will be plotted on.
+                    slicer = pd.IndexSlice
+                    y_true:pd.Series = self.FactVsPrediction.loc[:, slicer[model_name, train_type, 0, "True"]] #Find the true label for the model and train type
 
-                slicer = pd.IndexSlice
-                y_true:pd.Series = self.FactVsPrediction.loc[:, slicer[model_name, train_type, 0, "True"]] #Find the true label for the model and train type
-
-                #y_pred:pd.Series = self.FactVsPrediction.loc[:, slicer[model_name, train_type, :, "Pred"]].mode(axis=1)[0] #Find the predicted label for the model and train type.
-                y_pred:pd.Series = self.FactVsPrediction.loc[:, slicer[model_name, train_type, 0, "Pred"]]
+                    y_pred:pd.Series = self.FactVsPrediction.loc[:, slicer[model_name, train_type, 0, "Pred"]]
 
 
-           
-                conf_axes:plt.axes = list_of_conf_axes[row_idx, col_idx]
+            
+                    figure = plt.figure()
+                    conf_axes = figure.add_subplot()
 
 
-                ConfusionMatrixDisplay.from_predictions(y_true = y_true, y_pred = y_pred, normalize = "true", ax = conf_axes)
+                    ConfusionMatrixDisplay.from_predictions(y_true = y_true, y_pred = y_pred, normalize = "true", ax = conf_axes,
+                                                            colorbar = False)
+                    
+                    conf_axes.set_xlabel(xlabel = "")
+                    conf_axes.set_ylabel(ylabel = "")
 
-                conf_axes.set_title(graph_name)
+                    conf_axes.set_title(graph_name)
 
-                conf_matrix_directory = parent_cwd_dir/dir_name #Create a  directory containing all confusion matrices for a given model.
+                    conf_matrix_directory = parent_cwd_dir/dir_name #Create a  directory containing all confusion matrices for a given model.
 
-                if not conf_matrix_directory.exists():
-                    conf_matrix_directory.mkdir()
+                    if not conf_matrix_directory.exists():
+                        conf_matrix_directory.mkdir()
 
-                conf_matrix_filename = conf_matrix_directory/file_name
+                    conf_matrix_filename = conf_matrix_directory/file_name
 
-                if conf_matrix_filename.exists():
-                    conf_matrix_filename.unlink()
-                
-                conf_figure.savefig(fname = conf_matrix_filename)
+                    if conf_matrix_filename.exists():
+                        conf_matrix_filename.unlink()
+                    
+                    figure.savefig(fname = conf_matrix_filename)
 
 
 
     def plot_models_results_collectively(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]) -> None:
         for metric_name in metrics_names:
             for train_type in self.training_types:
-                graph_name:str = rf"$\bf{{{train_type}}}$: Models perfomance comparison using $\bf{{{metric_name}}}$" #Create an informative and concise title for the plot.
+                graph_name:str = rf"{train_type}: Models perfomance comparison using {metric_name}" #Create an informative and concise title for the plot.
                 file_name:str = rf"{train_type} - Models perfomance comparison using {metric_name}"
                 dir_name:str = rf"Models perfomance comparison"
                 
@@ -1017,7 +1009,7 @@ class ModelComparator():
     def plot_median_values(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]) -> None:
         for metric_name in metrics_names:
             for train_type in self.training_types:
-                graph_name: str = rf" $\bf{{{train_type}}}$: Comparison of median values of $\bf{{{metric_name}}}$ of each model" #Create an informative and concise title for the plot.
+                graph_name: str = rf"{train_type} Comparison of median values of {metric_name} of each model" #Create an informative and concise title for the plot.
                 dir_name:str = rf"{train_type} Medianvalues of all models computed using"
                 file_name = rf"{train_type} Medianvalues of all models computed using {metric_name}"
 
