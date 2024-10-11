@@ -19,7 +19,6 @@ import prince
 from string import ascii_uppercase
 
 import pathlib as path
-#test
 parent_cwd_dir = path.Path.cwd().parent #Find the parent directory for current working directory (CWD).
 
 class RareClassAggregator(TransformerMixin, BaseEstimator):
@@ -290,9 +289,12 @@ class ModelComparator():
         self.test_size:float = test_size
 
         self.show_plots:bool = show_plots
+
         self.quartile_discr:bool = quartile_discr
         self.quartile_classes:int = quartile_classes
 
+        self.results_directory:str = parent_cwd_dir / ("Classic_Labels" if quartile_discr is True else  "Quartile_Labels") #Find the destination path for result directory, depending on discretization-type.
+        
 
         self.create_predictions_dataframe()
         self.model_names:list[str] = list(self.Models.keys())
@@ -345,7 +347,6 @@ class ModelComparator():
             barplot_filename.unlink()
         
             
-        barplot_figure.savefig(fname = barplot_filename)
     
 
 
@@ -363,7 +364,7 @@ class ModelComparator():
 
         corr_mat_axes.set_title(r"Correlation matrix for numeric continous variables")
     
-        corrmat_directory = self.dir_prefix + parent_cwd_dir/"CorrelationMatrix" #Find the path to directory containing correlation_matrix image. If the directory doesn't exists, create one.
+        corrmat_directory = self.results_directory/"CorrelationMatrix" #Find the path to directory containing correlation_matrix image. If the directory doesn't exists, create one.
 
         if not corrmat_directory.exists(): #Check if the corrmat_directory doesn't exist.
             corrmat_directory.mkdir() #If True, create one.
@@ -411,7 +412,7 @@ class ModelComparator():
             axes.grid(True)
 
 
-            KDEplots_directory = self.dir_prefix + parent_cwd_dir/"Conditioned_Distribution" #Find the path to directory containing boxplots image. If the directory doesn't exists, create one.
+            KDEplots_directory = self.results_directory/"Conditioned_Distribution" #Find the path to directory containing boxplots image. If the directory doesn't exists, create one.
 
             if not KDEplots_directory.exists(): #Make sure the plot doesn't exist.
                 KDEplots_directory.mkdir() #create one.
@@ -441,7 +442,7 @@ class ModelComparator():
 
             axes.set_title(rf"Boxplot for {num_feature} feature")
 
-            boxplots_directory = self.dir_prefix + parent_cwd_dir/"Boxplots" #Find the path to directory containing boxplots image. If the directory doesn't exists, create one.
+            boxplots_directory = self.results_directory/"Boxplots" #Find the path to directory containing boxplots image. If the directory doesn't exists, create one.
 
             if not boxplots_directory.exists(): #Check if the boxplot for the feature doesn't exist.
                 boxplots_directory.mkdir() #If True, create one.
@@ -478,11 +479,10 @@ class ModelComparator():
 
 
             axes.set_title(plot_title)
-
             axes.legend([])
-
             axes.grid(True, alpha = 0.6)
             axes.spines[['top','right']].set_visible(False)
+
 
             violinplots_directory = self.dir_prefix + parent_cwd_dir/"DistributionPlots" #Find the path to directory containing violinplot image. If the directory doesn't exists, create one.
 
@@ -799,9 +799,6 @@ class ModelComparator():
 
         y_train: np.ndarray = self.y[train_indx]
         y_test: np.ndarray = self.y[test_indx]
-            
-   
-    
 
         for model_name in self.Models.keys():
         
@@ -842,7 +839,7 @@ class ModelComparator():
             self.FactVsPrediction[(model_name, "noFS_tuned", split_indx, "Pred")] = y_pred
 
 
-                                        
+
     def train_models(self) -> None:
         """"The  method  train the models with two versions: without FeatureSelection and with FeatureSelection. To split the dataset into training and testing subsets,
         a StratifiedShuffleSplit is defined so that the probabilities of targer's modalities are preserved.
@@ -878,7 +875,6 @@ class ModelComparator():
             self.train_with_FS( train_indx = train_indx, test_indx = test_indx, split_indx = split_indx) #Train the model with FeatureSelection
 
 
-    
 
     def compare_four_train_types(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]) -> None:
         "For each given model, compare the perfomance of its four versions using given metric"
@@ -912,7 +908,7 @@ class ModelComparator():
                 boxplot_axes.legend([])
 
 
-                boxplot_metric_directory = self.dir_prefix + self.dir_prefix + parent_cwd_dir/"Boxplot for metric and model" #Find the path to directory containing boxplots . If the directory doesn't exists, create one.
+                boxplot_metric_directory = self.results_directory/"Boxplot for metric and model" #Find the path to directory containing boxplots . If the directory doesn't exists, create one.
 
                 if not boxplot_metric_directory.exists(): #Check if the boxplot  for the model and metric doesn't exist.
                     boxplot_metric_directory.mkdir() #If True, create one.
@@ -957,7 +953,7 @@ class ModelComparator():
 
                     conf_axes.set_title(graph_name)
 
-                    conf_matrix_directory =  self.dir_prefix + self.dir_prefix + parent_cwd_dir/dir_name #Create a  directory containing all confusion matrices for a given model.
+                    conf_matrix_directory =   self.results_directory/dir_name #Create a  directory containing all confusion matrices for a given model.
 
                     if not conf_matrix_directory.exists():
                         conf_matrix_directory.mkdir()
@@ -995,7 +991,7 @@ class ModelComparator():
                 metric_axes.grid(True, alpha = 0.7)
 
 
-                boxplots_directory = self.dir_prefix + parent_cwd_dir/dir_name #Create a  directory containing all confusion matrices for a given model.
+                boxplots_directory = self.results_directory/dir_name #Create a  directory containing all confusion matrices for a given model.
 
                 if not boxplots_directory.exists():
                     boxplots_directory.mkdir()
@@ -1007,7 +1003,8 @@ class ModelComparator():
                 
                 metric_figure.savefig(fname = box_matrix_filename)
 
-    
+
+
     def plot_median_values(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]) -> None:
         for metric_name in metrics_names:
             for train_type in self.training_types:
@@ -1023,29 +1020,30 @@ class ModelComparator():
                 median_dataframe:pd.DataFrame = metrics_dataframe.loc[:, index_slicer[:, train_type, metric_name]].median(axis = 0).reset_index(level = [1,2], drop = True).reset_index()
                 median_dataframe.columns =["Model", 'Median']
 
+                min_value:float = median_dataframe['Median'].min() 
+
                 sns.barplot(data = median_dataframe, x = "Model", y = "Median", palette = self.colors_for_models,
                             ax = medianmetric_axes, linewidth = 1.5, edgecolor = "black")
-                
-                min_value = median_dataframe['Median'].min()
+            
 
                 medianmetric_axes.set_xlabel("Model", labelpad = 5)
                 medianmetric_axes.set_ylabel(f"Median value", labelpad = 5)
                 medianmetric_axes.set_title(graph_name)
-
                 medianmetric_axes.set_ylim(0.99*min_value, 1)
 
 
-                medvalues_directory = self.dir_prefix + parent_cwd_dir/dir_name #Create a  directory containing all confusion matrices for a given model.
+                medvalues_directory = self.results_directory/dir_name #Create a  directory containing all confusion matrices for a given model.
+                medvalues_filename = medvalues_directory/file_name
 
                 if not medvalues_directory.exists():
                     medvalues_directory.mkdir()
-
-                medvalues_filename = medvalues_directory/file_name
 
                 if medvalues_filename.exists():
                     medvalues_filename.unlink()
                 
                 medianmetric_figure.savefig(fname = medvalues_filename)
+
+
 
     def compute_perf_metric(self, metrics: dict[str, callable], metrics_names:list[str]) -> pd.DataFrame:
         """The function assess the perfomance of a given model, by a given training_type, by a given metric_name, by a given split_idx.
@@ -1057,10 +1055,9 @@ class ModelComparator():
 
         Returns:
         pd.DataFrame
-    
         """
+
         #The column-system of a metric_dataframe will be 3-leveled. The first level is model_name, the second is training_type, the third is metric_name.
-        
         col_indeces = pd.MultiIndex.from_product(iterables =[self.model_names, self.training_types, metrics_names ]) 
         row_indeces: list[int] = list(range(self.n_splits))
 
@@ -1074,8 +1071,6 @@ class ModelComparator():
                         y_true:pd.Series = self.FactVsPrediction[(model_name, train_type, split_idx, "True")]
                         y_pred:pd.Series = self.FactVsPrediction[(model_name, train_type, split_idx, "Pred")]
 
-
-                    
                         if metric_name != "accuracy-score":
 
                             metric_value:float = metrics[metric_name](y_true = y_true, y_pred = y_pred, 
@@ -1083,15 +1078,11 @@ class ModelComparator():
                         else:
                             metric_value:float = metrics[metric_name](y_true = y_true, y_pred = y_pred, 
                                                                 )
-                        
-                    
+                            
                         metrics_dataframe.loc[split_idx,(model_name, train_type, metric_name)] = metric_value
                       
-
-        
         return metrics_dataframe
-
-
+    
 
 
     def compare_models(self) -> None:
