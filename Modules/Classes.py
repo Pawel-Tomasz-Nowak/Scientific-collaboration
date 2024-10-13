@@ -293,11 +293,15 @@ class ModelComparator():
         self.quartile_discr:bool = quartile_discr
         self.quartile_classes:int = quartile_classes
 
-        self.results_directory:str = parent_cwd_dir / ("Classic_Labels" if quartile_discr is True else  "Quartile_Labels") #Find the destination path for result directory, depending on discretization-type.
+        self.results_directory:path.Path = parent_cwd_dir / ("Classic_Labels" if quartile_discr is False else  "Quartile_Labels") #Find the destination path for result directory, depending on discretization-type.
         
+        if not self.results_directory.exists():
+            self.results_directory.mkdir()
+
 
         self.create_predictions_dataframe()
         self.model_names:list[str] = list(self.Models.keys())
+
 
         
     def read_dataframe(self, filename:str, 
@@ -315,7 +319,7 @@ class ModelComparator():
         1) FreqTable  - Tabela częstotliwości kategori danej zmiennej kategorycznej
         2) CatFeature  - Cecha kategoryczna badana.
         3) Showxlabel - Zmienna typu bool. Jeżeli ustawiona na True, to etykietki osi Ox są wyświetlane."""
-        barplot_figure = plt.figure(num = f"Barplot of rel. freqs. for {feature} feature",figsize = (10,5), dpi = 300) #Stwórz płótno, na którym  będzie rysowany wykres.
+        barplot_figure = plt.figure() #Stwórz płótno, na którym  będzie rysowany wykres.
         axes = barplot_figure.add_subplot()
     
 
@@ -335,7 +339,7 @@ class ModelComparator():
         if Showxlabels == True:
             axes.set_xticklabels(labels = self.Dataset[feature].unique())
 
-        barplots_directory =  self.dir_prefix + parent_cwd_dir/"BarPlots" #Find the path to directory containing all barplots. 
+        barplots_directory =  self.results_directory/"BarPlots" #Find the path to directory containing all barplots. 
                                                         #If the directory doesn't exists, create one.
 
         if not barplots_directory.exists(): #Check if the barplots_directory doesn't exist.
@@ -345,6 +349,9 @@ class ModelComparator():
 
         if  barplot_filename.exists():
             barplot_filename.unlink()
+
+
+        barplot_figure.savefig(fname = barplot_figure)
         
             
     
@@ -356,7 +363,7 @@ class ModelComparator():
 
         CorrMatrix:pd.DataFrame =  self.Dataset[self.cont_features].corr(method = "pearson")
 
-        corr_mat_fig:plt.figure = plt.figure(num = "Correlation matrix", figsize=(10, 5), dpi = 250)
+        corr_mat_fig:plt.figure = plt.figure()
         corr_mat_axes:plt.axes = corr_mat_fig.add_subplot()
 
 
@@ -408,12 +415,13 @@ class ModelComparator():
             else:
                 sns.histplot(data = self.Dataset, x = num_feature, ax = axes, hue = Condition, stat = "probability")
 
+
             axes.set_title(plot_title)
             axes.grid(True)
 
 
             KDEplots_directory = self.results_directory/"Conditioned_Distribution" #Find the path to directory containing boxplots image. If the directory doesn't exists, create one.
-
+    
             if not KDEplots_directory.exists(): #Make sure the plot doesn't exist.
                 KDEplots_directory.mkdir() #create one.
 
@@ -434,7 +442,7 @@ class ModelComparator():
         """
 
         for num_feature in self.num_features:
-            figure = plt.figure(num = f"Conditioned boxplot for {num_feature}", dpi = 250)
+            figure = plt.figure()
         
             axes = figure.add_subplot()
         
@@ -465,7 +473,7 @@ class ModelComparator():
             plot_type:str = "Boxplot" if feature in self.discr_features else "Violinplot" #Determine the type of the plot based on the variable's dtype.
             plot_title: str = f"{plot_type} for {feature}"
 
-            figure = plt.figure(num = f"{plot_type} for {feature}")
+            figure = plt.figure()
             axes = figure.add_subplot()
          
             if feature in self.discr_features:
@@ -484,7 +492,7 @@ class ModelComparator():
             axes.spines[['top','right']].set_visible(False)
 
 
-            violinplots_directory = self.dir_prefix + parent_cwd_dir/"DistributionPlots" #Find the path to directory containing violinplot image. If the directory doesn't exists, create one.
+            violinplots_directory = self.results_directory/"DistributionPlots" #Find the path to directory containing violinplot image. If the directory doesn't exists, create one.
 
             if not violinplots_directory.exists(): #Check if the violinplot for the feature doesn't exist.
                 violinplots_directory.mkdir() #If True, create one.
@@ -880,7 +888,7 @@ class ModelComparator():
         "For each given model, compare the perfomance of its four versions using given metric"
         for model_name in self.model_names:
             for metric_name in metrics_names:
-                boxplot_figure: plt.figure = plt.figure(num  = f"Boxplot comparison for {model_name} model and for {metric_name} metric", dpi = 250)
+                boxplot_figure: plt.figure = plt.figure()
                 boxplot_axes: plt.axes = boxplot_figure.add_subplot()
 
 
@@ -900,9 +908,9 @@ class ModelComparator():
                 boxplot_axes.spines[["top", "right"]].set_visible(False)
 
                 boxplot_axes.set_xlabel("Training type")
-                boxplot_axes.set_ylabel(f"Variability of the {metric_name} metric values")
+                boxplot_axes.set_ylabel(f"{metric_name} metric")
 
-                boxplot_axes.set_title(f"Variabilities of {metric_name} values for {model_name}")
+                boxplot_axes.set_title(f"Variability of {metric_name}  for {model_name}")
 
                 boxplot_axes.set_xticks([i for i in range(len(self.training_types))])
                 boxplot_axes.legend([])
@@ -974,7 +982,7 @@ class ModelComparator():
                 file_name:str = rf"{train_type} - Models perfomance comparison using {metric_name}"
                 dir_name:str = rf"Models perfomance comparison"
                 
-                metric_figure:plt.Figure = plt.figure(num =graph_name, dpi = 250)
+                metric_figure:plt.Figure = plt.figure()
                 metric_axes:plt.axes = metric_figure.add_subplot()
 
                 
@@ -1012,7 +1020,7 @@ class ModelComparator():
                 dir_name:str = rf"{train_type} Medianvalues of all models computed using"
                 file_name = rf"{train_type} Medianvalues of all models computed using {metric_name}"
 
-                medianmetric_figure = plt.figure(num = graph_name) #Create a figure for dispalying the median values.
+                medianmetric_figure = plt.figure() #Create a figure for dispalying the median values.
                 medianmetric_axes = medianmetric_figure.add_subplot() #Create an axes associated with that figure.
 
                 index_slicer = pd.IndexSlice #Define the instance of IndexSlice to make dataframes indexing easy.
@@ -1092,7 +1100,6 @@ class ModelComparator():
         metrics:dict[str : "metric"] = {"accuracy-score":accuracy_score, "f1-score":f1_score}
     
         
-        self.dir_prefix: str = "CustomDiscretize" if self.quartile_discr else "" #A prefix identyfing the directories containings the results of the quartile-based discretization.
 
         if self.quartile_discr:
             metrics:dict[str : "metric"] = {"f1-score":f1_score}
