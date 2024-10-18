@@ -323,7 +323,7 @@ class ModelComparator():
 
         returns:
         None
-        
+
         """
 
         barplot_figure = plt.figure() #Figure of the plot.
@@ -332,7 +332,7 @@ class ModelComparator():
         sns.histplot(data = self.Dataset, x= feature, stat = "probability", ax = axes)
 
 
-        axes.set_ylabel(f"Probab. of a class") #Set the xlabel.
+        axes.set_ylabel(f"Probab. of class") #Set the xlabel.
         axes.set_xlabel(f"{feature}'s levels") #Set the ylabel.
 
         axes.set_xticklabels([]) #Remove xticks.
@@ -364,18 +364,28 @@ class ModelComparator():
 
 
     def compute_and_draw_correlation_matrix(self,) -> None:
-        """Funkcja wylicza macierz korelaji dla zmiennych z listy FloatFeatures. Ponadto, rysuje tę macierz korelacji na wykresie, aby można
-        było sobie uzmysłowić relacje między zmiennymi"""
+        """The function computes and displays the correlation matrix of all continous features.
+        
+        Parameters:
+        None
 
+        returns:
+        None
+
+        """
         CorrMatrix:pd.DataFrame =  self.Dataset[self.cont_features].corr(method = "pearson")
 
-        corr_mat_fig:plt.figure = plt.figure()
+        corr_mat_fig:plt.figure = plt.figure(dpi = 500)
         corr_mat_axes:plt.axes = corr_mat_fig.add_subplot()
 
 
         sns.heatmap(CorrMatrix, annot=True, cmap='magma', vmin=-1, vmax=1, ax = corr_mat_axes)
 
-        corr_mat_axes.set_title(r"Correlation matrix for numeric continous variables")
+        corr_mat_axes.set_xticklabels("")
+        corr_mat_axes.set_yticklabels("")
+
+
+        corr_mat_axes.set_title(r"Correlation matrix for continous variables")
     
         corrmat_directory = self.results_directory/"CorrelationMatrix" #Find the path to directory containing correlation_matrix image. If the directory doesn't exists, create one.
 
@@ -406,25 +416,28 @@ class ModelComparator():
         """Function draws conditioned KDEPlots for continous variables or barplots for discrete variables"""
         
         for num_feature in self.num_features:
-            figure = plt.figure()
+            figure = plt.figure() 
             axes = figure.add_subplot()
 
 
-            plot_type: str ="Barplot" if num_feature in self.discr_features else "KDEplot"
-            plot_title:str = rf"Conditional {plot_type} of {num_feature}" 
+            plot_type: str ="Barplot" if num_feature in self.discr_features else "KDE" #Determine the type of distribution.
+            plot_title:str = rf"Conditional {plot_type} of {num_feature}"  #Set the title of the plot
            
 
 
             if num_feature in self.cont_features:
                 sns.kdeplot(data = self.Dataset, x = num_feature, ax = axes, hue = Condition)
+               
+               
+                if self.quartile_discr == False: #Set the verbal labels for the legend only if we're binning the target variable manually.
+                    axes.legend(labels = ["wysoka", "średnia", "niska"], handles = axes.lines, title = "Klasy emisyjności") #Then set the labels for corresponding lines
+
             else:
                 sns.histplot(data = self.Dataset, x = num_feature, ax = axes, hue = Condition, stat = "probability")
 
-
-            axes.set_title(plot_title)
+            axes.set_title(label = plot_title)
             axes.grid(True)
-
-
+            
             KDEplots_directory = self.results_directory/"Conditioned_Distribution" #Find the path to directory containing boxplots image. If the directory doesn't exists, create one.
     
             if not KDEplots_directory.exists(): #Make sure the plot doesn't exist.
@@ -554,9 +567,9 @@ class ModelComparator():
         self.Dataset:pd.DataFrame = RareClassAggregator_inst.transform(X = self.Dataset, cat_features = self.cat_features) #Przekształć obecny zbiór danych.
 
 
-        for finite_feature in self.cat_features + self.discr_features:
-            if self.show_plots is True:
-                self.plot_barplot(feature = finite_feature, Showxlabels = False)
+        if self.show_plots:
+            for finite_feature in self.cat_features + self.discr_features:
+                self.plot_barplot(feature = finite_feature)
 
 
         #Delete the extreme-outsider record and redundant column.
@@ -579,8 +592,8 @@ class ModelComparator():
 
         
         
-            self.plot_barplot(feature =  self.target_var_discr,  #Draw a barplot for discretized target feature.
-                            Showxlabels = False)
+            self.plot_barplot(feature =  self.target_var_discr)  #Draw a barplot for discretized target feature.
+                            
             
         
             self.plot_condidtioned_distribution(Condition = self.target_var_discr)  #Wykresy gęstości warunkowe
