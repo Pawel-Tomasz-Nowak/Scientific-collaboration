@@ -314,29 +314,35 @@ class ModelComparator():
         return Dataset
 
 
-    def plot_barplot(self, feature:str, Showxlabels:bool = False) -> None:
-        """Funkcja rysuje wykres słupkowy na bazie tabeli kontygnacji. 
-        1) FreqTable  - Tabela częstotliwości kategori danej zmiennej kategorycznej
-        2) CatFeature  - Cecha kategoryczna badana.
-        3) Showxlabel - Zmienna typu bool. Jeżeli ustawiona na True, to etykietki osi Ox są wyświetlane."""
-        barplot_figure = plt.figure() #Stwórz płótno, na którym  będzie rysowany wykres.
-        axes = barplot_figure.add_subplot()
-    
+    def plot_barplot(self, feature:str, display_xtick_labels:bool = False) -> None:
+        """The function displays the barplot representing the relative frequencies of the levels of a given 'feature'.
 
+        Parameters:
+        feature:str - the categorical feature whose levels' frequencies will be displayed.
+        display_xtick_labels: bool - If False (it's the default set), don't display xtickslabels. Other wise, display them.
+
+        returns:
+        None
+        
+        """
+
+        barplot_figure = plt.figure() #Figure of the plot.
+        axes = barplot_figure.add_subplot() #A specific axes for the plot.
+     
         sns.histplot(data = self.Dataset, x= feature, stat = "probability", ax = axes)
 
 
-        axes.set_ylabel(f"Rel. freq. of class.") #Ustaw etykietke pionowej osi.
-        axes.set_xlabel(f"{feature}")
+        axes.set_ylabel(f"Probab. of a class") #Set the xlabel.
+        axes.set_xlabel(f"{feature}'s levels") #Set the ylabel.
 
-        axes.set_xticklabels([]) #Usuń etykiety tyknięć na osi Ox.
-        axes.spines[["top", "right"]].set_alpha(0.5)
-
-
-        axes.set_title(rf"Barplot of rel. freqs. of the {feature} feature") #Ustaw tytuł wykresu.
+        axes.set_xticklabels([]) #Remove xticks.
+        axes.spines[["top", "right"]].set_alpha(0.5) #Set top and right spines' transparency to 0.5.
 
 
-        if Showxlabels == True:
+        axes.set_title(rf"Relatives frequencies of the {feature}'s levels") #Set the title of the graph.
+
+
+        if display_xtick_labels == True:
             axes.set_xticklabels(labels = self.Dataset[feature].unique())
 
         barplots_directory =  self.results_directory/"BarPlots" #Find the path to directory containing all barplots. 
@@ -351,7 +357,7 @@ class ModelComparator():
             barplot_filename.unlink()
 
 
-        barplot_figure.savefig(fname = barplot_figure)
+        barplot_figure.savefig(fname = barplot_filename)
         
             
     
@@ -405,9 +411,8 @@ class ModelComparator():
 
 
             plot_type: str ="Barplot" if num_feature in self.discr_features else "KDEplot"
-            plot_title:str = rf"Conditioned {plot_type} of {num_feature}" 
+            plot_title:str = rf"Conditional {plot_type} of {num_feature}" 
            
-
 
 
             if num_feature in self.cont_features:
@@ -645,7 +650,6 @@ class ModelComparator():
         
         Parameters \n
         --------- \n
-
         num_predictors_idx : list[int] : list of indeces of numerical variables. \n
         PCA_predictors_idx : list[int] : list of indeces of PCA variables. \n
         cat_predictors_idx : list[int] : list of indeces of categorical variables.  \n
@@ -908,7 +912,7 @@ class ModelComparator():
                 boxplot_axes.spines[["top", "right"]].set_visible(False)
 
                 boxplot_axes.set_xlabel("Training type")
-                boxplot_axes.set_ylabel(f"{metric_name} metric")
+                boxplot_axes.set_ylabel(f"{metric_name} values")
 
                 boxplot_axes.set_title(f"Variability of {metric_name}  for {model_name}")
 
@@ -991,10 +995,10 @@ class ModelComparator():
                 sns.boxplot(data = y_values, ax = metric_axes)
 
 
-            
+
                 metric_axes.set_title(graph_name)
                 metric_axes.set_xlabel("Model name")
-                metric_axes.set_ylabel("Metric value")
+                metric_axes.set_ylabel(f"{metric_name} values")
               
                 metric_axes.grid(True, alpha = 0.7)
 
@@ -1016,7 +1020,7 @@ class ModelComparator():
     def plot_median_values(self, metrics_dataframe:pd.DataFrame, metrics_names:list[str]) -> None:
         for metric_name in metrics_names:
             for train_type in self.training_types:
-                graph_name: str = rf"{train_type} Comparison of median values of {metric_name} of each model" #Create an informative and concise title for the plot.
+                graph_name: str = rf"{train_type}: Comparison of median values of {metric_name} of each model" #Create an informative and concise title for the plot.
                 dir_name:str = rf"{train_type} Medianvalues of all models computed using"
                 file_name = rf"{train_type} Medianvalues of all models computed using {metric_name}"
 
