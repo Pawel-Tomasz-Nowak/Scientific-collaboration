@@ -768,14 +768,14 @@ class ModelComparator():
 
             SFS_inst = WrappedSequentialFeatureSelection(cat_vars_idx = cat_vars_idx, num_vars_idx = num_vars_idx,
                                               estimator = model, 
-                                              n_features_to_select = "auto", tol = 0.05, n_jobs = -1, cv = 2, scoring = self.scoring_method)
+                                              n_features_to_select = "auto", tol = 0.01, n_jobs = -1, cv = 3, scoring = self.scoring_method)
             
             model_FS_tuned: Pipeline = Pipeline(steps = [("FeatSel", SFS_inst), ("Model", model)])
         
    
      
             GridSearch = GridSearchCV(estimator =model_FS_tuned , param_grid = trans_model_paramgrid,   #Define the GridSearch.
-                                      n_jobs = -1, scoring = self.scoring_method, cv = 2, error_score = 0) 
+                                      n_jobs = -1, scoring = self.scoring_method, cv = 3, error_score = 0) 
             
             GridSearch.fit(X = X_train, y = y_train) #Train the GridSearch with training data.
 
@@ -843,7 +843,6 @@ class ModelComparator():
             y_pred:np.ndarray = trans_model.predict(X = X_test)
 
       
-
             self.FactVsPrediction[(model_name, "noFS_untuned", split_indx, "True")] = y_test
             self.FactVsPrediction[(model_name, "noFS_untuned", split_indx, "Pred")] = y_pred
         
@@ -853,7 +852,7 @@ class ModelComparator():
             trans_model_paramgrid = {f"Classifier__{param}":model_paramgrid[param] for param in  model_paramgrid.keys()} #Dopasuj nazwy hiperparametrów do estymatora, 
                                                                                          # który nie jest bezpośrednio klasyfikatorem.
 
-            GridSearch = GridSearchCV(estimator = trans_model, param_grid = trans_model_paramgrid, n_jobs = -1, scoring = self.scoring_method, cv = 2,error_score = 0)
+            GridSearch = GridSearchCV(estimator = trans_model, param_grid = trans_model_paramgrid, n_jobs = -1, scoring = self.scoring_method, cv = 3,error_score = 0)
           
             
             GridSearch.fit(X = X_train, y = y_train)
