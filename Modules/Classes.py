@@ -332,7 +332,7 @@ class ModelComparator():
         sns.histplot(data = self.Dataset, x= feature, stat = "probability", ax = axes)
 
 
-        axes.set_ylabel(f"Probab. of class") #Set the xlabel.
+        axes.set_ylabel(f"relative frequency of level") #Set the xlabel.
         axes.set_xlabel(f"{feature}'s levels") #Set the ylabel.
 
         axes.set_xticklabels([]) #Remove xticks.
@@ -603,14 +603,10 @@ class ModelComparator():
     
 
         #Ustal ostateczny zbiór predyktorów.
-        pre_predictors:list[str] = ['Make', "Vehicle Class",'Engine Size(L)','Cylinders','Transmission','Fuel Type',
+        self.predictors:list[str] = ['Make', "Vehicle Class",'Engine Size(L)','Cylinders','Transmission','Fuel Type',
                                     "Fuel Consumption City (L/100 km)", "Fuel Consumption Hwy (L/100 km)",  
                                         "Fuel Consumption Comb (L/100 km)","Fuel Consumption Comb (mpg)"]
        
-        self.predictors = [predictor for predictor in pre_predictors]
-     
-   
-
       
         #Podziel zbiór predyktorów na zmienne numeryczne oraz zmienne kategoryczne odpowiednio.
         self.num_predictors_idx:list[int] = []
@@ -708,8 +704,6 @@ class ModelComparator():
 
 
                 
-        
-
         return Predictors_transformer
 
 
