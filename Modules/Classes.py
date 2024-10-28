@@ -329,13 +329,22 @@ class ModelComparator():
         barplot_figure = plt.figure() #Figure of the plot.
         axes = barplot_figure.add_subplot() #A specific axes for the plot.
      
-        sns.histplot(data = self.Dataset, x= feature, stat = "probability", ax = axes)
+        relat_freq:pd.DataFrame = self.Dataset[feature].value_counts(normalize = True, sort = False).reset_index()
+
+        sns.barplot(data = relat_freq, x = feature, y = "proportion", ax = axes, 
+                    edgecolor = "black")
 
 
         axes.set_ylabel(f"relative frequency of level") #Set the xlabel.
         axes.set_xlabel(f"{feature}'s levels") #Set the ylabel.
 
-        axes.set_xticklabels([]) #Remove xticks.
+
+        if not feature.startswith("CO2 Emissions(g/km)"):
+            axes.set_xticklabels([]) #Remove xticks.
+        else:
+            axes.set_xticklabels([str(i) for i in self.class_labels])
+    
+
         axes.spines[["top", "right"]].set_alpha(0.5) #Set top and right spines' transparency to 0.5.
 
 
@@ -531,7 +540,7 @@ class ModelComparator():
         if self.quartile_discr == True:
             KBD_inst = KBD(n_bins = self.quartile_classes, encode = "ordinal", strategy  = "quantile")
 
-            self.class_labels:list[int] =  [i for i in range(self.quartile_classes-1)] #Find the list of class-labels.
+            self.class_labels:list[int] =  [int(i) for i in range(self.quartile_classes-1)] #Find the list of class-labels.
             
 
             discretized_feature:np.ndarray = KBD_inst.fit_transform(X = pd.DataFrame(self.Dataset[self.target_var]))[:, 0]
@@ -1126,7 +1135,3 @@ class ModelComparator():
         self.compare_four_train_types(metrics_dataframe = metrics_dataframe, metrics_names = metrics_names)
         self.plot_median_values(metrics_dataframe = metrics_dataframe, metrics_names = metrics_names)
         self.plot_confussion_matrix()
-
-
-                        
-                
